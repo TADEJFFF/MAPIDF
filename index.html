@@ -1436,16 +1436,23 @@ main();
   /* ---- Applique les overrides + membres à tous les shops ---- */
   function buildAllShops(){
     var overrides=loadOverrides();
-    var members=new Set(loadMembers());
+    var members=loadMembers(); // array de Number
+    var membersSet=new Set(members);
     var customs=loadCustoms();
+ 
     var base=SHOPS.map(function(s){
       var o=overrides[s.id]||{};
-      return Object.assign({},s,o,{member:members.has(s.id)});
-    }).filter(function(s){ return !overrides[s.id] || overrides[s.id]._deleted !== true; });
-    var customsWithMember=customs.map(function(s){
-      return Object.assign({},s,{member:members.has(s.id)});
+      if(o._deleted)return null;
+      // Priorité : localStorage > valeur baked-in dans SHOPS
+      var isMember = membersSet.size > 0 ? membersSet.has(Number(s.id)) : !!s.member;
+      return Object.assign({},s,o,{member:isMember});
+    }).filter(Boolean);
+ 
+    var customsAll=customs.map(function(s){
+      var isMember = membersSet.size > 0 ? membersSet.has(Number(s.id)) : !!s.member;
+      return Object.assign({},s,{member:isMember});
     });
-    return base.concat(customsWithMember);
+    return base.concat(customsAll);
   }
  
   /* ---- Refresh global carte ---- */
@@ -1512,8 +1519,10 @@ main();
     var overrides=loadOverrides();
     var members=new Set(loadMembers());
     var customs=loadCustoms();
-    // Rebuild base shops with overrides + member flag baked in
-    var allShops=SHOPS.map(function(s,i){
+ 
+    // Intégrer TOUTES les modifications en dur dans SHOPS :
+    // overrides, suppressions, flag member, ajouts customs
+    var allShops=SHOPS.map(function(s){
       var o=overrides[s.id]||{};
       if(o._deleted)return null;
       return Object.assign({},s,o,{member:members.has(s.id)});
@@ -1522,13 +1531,17 @@ main();
       allShops.push(Object.assign({},s,{member:members.has(s.id)}));
     });
     allShops=allShops.map(function(s,i){return Object.assign({},s,{id:i});});
+ 
     var newJson=JSON.stringify(allShops);
     var h=document.documentElement.outerHTML;
+ 
+    // 1. Remplacer SHOPS par la version enrichie
     h=h.replace(/const SHOPS = \[[\s\S]*?\];/,'const SHOPS = '+newJson+';');
-    // Reset storage keys in export (clean slate)
-    h=h.replace("var OVERRIDES_KEY = 'cremiers_overrides_v1'","var OVERRIDES_KEY = 'cremiers_overrides_v2'");
-    h=h.replace("var MEMBERS_KEY   = 'cremiers_members_v1'","var MEMBERS_KEY   = 'cremiers_members_v2'");
-    h=h.replace("var STORAGE_KEY   = 'cremiers_custom_v2'","var STORAGE_KEY   = 'cremiers_custom_v3'");
+ 
+    // 2. NE PAS incrémenter les clés — on garde les mêmes clés localStorage
+    // Le fichier exporté a SHOPS enrichi → les localStorage sont vides au départ
+    // ce qui est correct (tout est déjà dans SHOPS)
+ 
     var blob=new Blob([h],{type:'text/html;charset=utf-8'});
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');a.href=url;a.download='carte_cremiers_paris_MAJ.html';
