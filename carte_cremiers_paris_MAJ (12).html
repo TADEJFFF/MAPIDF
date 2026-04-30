@@ -1,0 +1,3536 @@
+<html lang="fr"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carte des crémiers-fromagers de Paris</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+
+<style>
+  :root {
+    --bg: #faf7f2;
+    --panel: #ffffff;
+    --border: #e8e1d4;
+    --text: #2a2420;
+    --muted: #77695c;
+    --accent: #b8864b;
+    --accent-dark: #8f6431;
+    --accent-light: #f0e3cf;
+    --shadow: 0 2px 8px rgba(58, 42, 22, 0.08);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+  }
+
+  #app {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #sidebar {
+    width: 360px;
+    min-width: 360px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    box-shadow: var(--shadow);
+  }
+
+  .sidebar-header {
+    padding: 20px 20px 14px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-header h1 {
+    margin: 0 0 4px 0;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .sidebar-header .subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .count-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 10px;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .controls {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .search-box {
+    position: relative;
+  }
+
+  .search-box input {
+    width: 100%;
+    padding: 9px 12px 9px 34px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    transition: border-color 0.15s;
+    font-family: inherit;
+  }
+
+  .search-box input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .search-box::before {
+    content: "";
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2377695c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
+    background-repeat: no-repeat;
+  }
+
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .filter-row label {
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  select {
+    flex: 1;
+    padding: 7px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  #shop-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .shop-item {
+    padding: 10px 20px;
+    border-bottom: 1px solid #f4efe6;
+    cursor: pointer;
+    transition: background-color 0.12s;
+  }
+
+  .shop-item:hover {
+    background: var(--bg);
+  }
+
+  .shop-item.selected {
+    background: var(--accent-light);
+    border-left: 3px solid var(--accent);
+    padding-left: 17px;
+  }
+
+  .shop-item .name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+    line-height: 1.3;
+  }
+
+  .shop-item .address {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .shop-item .arr-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .shop-item .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    background: #ddd;
+  }
+
+  .shop-item.geocoded .status-dot { background: #7fb373; }
+  .shop-item.failed .status-dot { background: #c86e4e; }
+
+  #map {
+    flex: 1;
+    position: relative;
+  }
+
+  /* Overlay de chargement */
+  #loading-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(250, 247, 242, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    backdrop-filter: blur(2px);
+  }
+
+  #loading-overlay.hidden { display: none; }
+
+  .loading-box {
+    text-align: center;
+    padding: 32px 48px;
+    background: var(--panel);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    max-width: 420px;
+  }
+
+  .loading-box h2 {
+    margin: 0 0 8px 0;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .loading-box p {
+    margin: 0 0 20px 0;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    margin: 0 auto 16px auto;
+    border: 3px solid var(--accent-light);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--accent-light);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.3s;
+  }
+
+  .error-box {
+    background: #fef3ef;
+    border: 1px solid #f0d0c0;
+    color: #8b4a2e;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    margin-top: 12px;
+    text-align: left;
+    line-height: 1.5;
+  }
+
+  /* Popups Leaflet */
+  .leaflet-popup-content-wrapper {
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(58, 42, 22, 0.15);
+  }
+
+  .leaflet-popup-content {
+    margin: 14px 18px;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.5;
+    min-width: 200px;
+  }
+
+  .popup-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+
+  .popup-line {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+
+  .popup-tel {
+    margin-top: 4px;
+    font-size: 12.5px;
+  }
+
+  .popup-tel a {
+    color: var(--accent-dark);
+    text-decoration: none;
+  }
+
+  .popup-tel a:hover {
+    text-decoration: underline;
+  }
+
+  /* Marqueurs */
+  .shop-marker {
+    background: var(--accent);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2.5px solid white;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    cursor: pointer;
+  }
+  .shop-marker.highlighted {
+    background: #d94a3d;
+    width: 18px;
+    height: 18px;
+    border-width: 3px;
+  }
+  .shop-marker.member {
+    background: #2e9e4f;
+    border-color: #e8f5ec;
+    box-shadow: 0 1px 6px rgba(46,158,79,0.5);
+  }
+  .shop-marker.member.highlighted {
+    background: #1e7a3a;
+  }
+
+  /* Toggle adhérents */
+  .member-toggle-row {
+    padding: 8px 20px 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-switch {
+    position: relative;
+    width: 36px; height: 20px; flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: #d0c8be; border-radius: 20px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .toggle-slider:before {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    left: 3px; top: 3px;
+    background: white; border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle-switch input:checked + .toggle-slider { background: #2e9e4f; }
+  .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); }
+  .toggle-label {
+    font-size: 12.5px; font-weight: 600; color: var(--text);
+    cursor: pointer; user-select: none;
+  }
+  .member-count {
+    margin-left: auto;
+    font-size: 11px;
+    background: #e8f5ec;
+    color: #1a6b32;
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-weight: 700;
+  }
+
+  /* Badge adhérent dans la liste */
+  .shop-item .member-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    background: #e8f5ec;
+    color: #1a6b32;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-weight: 700;
+    margin-left: 4px;
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+  }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    #app { flex-direction: column; }
+    #sidebar {
+      width: 100%;
+      min-width: 0;
+      max-height: 45vh;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    #map { height: 55vh; }
+  }
+
+  /* Bouton export */
+  .export-btn {
+    padding: 7px 12px;
+    font-size: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.12s;
+  }
+
+  .export-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent-dark);
+  }
+
+  .footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 10.5px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .footer a {
+    color: var(--accent-dark);
+    text-decoration: none;
+  }
+
+  /* ===== MODULE ADMIN ===== */
+  .admin-toggle-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 2000;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.15s;
+    line-height: 1;
+  }
+  .admin-toggle-btn:hover { background: var(--accent-dark); transform: scale(1.07); }
+
+  .admin-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(42,36,32,0.5);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+  }
+  .admin-overlay.open { display: flex; }
+
+  .admin-modal {
+    background: var(--panel);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    width: 500px;
+    max-width: 96vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 28px 28px 24px;
+    position: relative;
+  }
+  .admin-modal-header {
+    margin-bottom: 18px;
+  }
+  .admin-modal-header h2 {
+    margin: 0 0 3px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent-dark);
+  }
+  .admin-modal-header p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .admin-close {
+    position: absolute;
+    top: 18px; right: 18px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--muted);
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.1s, color 0.1s;
+  }
+  .admin-close:hover { background: var(--border); color: var(--text); }
+
+  .admin-section {
+    margin-bottom: 22px;
+  }
+  .admin-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+
+  /* Auth */
+
+  /* Onglets admin */
+  .atab-bar {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 2px;
+  }
+  .atab-btn {
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: color 0.12s;
+  }
+  .atab-btn:hover { color: var(--text); }
+  .atab-btn.active { color: var(--accent-dark); border-bottom-color: var(--accent); }
+
+  /* Items base de données */
+  .db-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 10px 12px;
+    font-size: 12.5px;
+  }
+  .db-item-top { display: flex; align-items: flex-start; gap: 8px; }
+  .db-member-toggle { cursor: pointer; flex-shrink: 0; margin-top: 2px; }
+  .db-member-toggle input { display: none; }
+  .db-star { font-size: 18px; line-height: 1; user-select: none; }
+  .db-info { flex: 1; min-width: 0; }
+  .db-name { font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .db-addr { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  .db-phone { color: var(--muted); font-size: 11px; }
+  .db-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .db-edit-btn, .db-del-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 14px; padding: 3px 5px; border-radius: 5px;
+    transition: background 0.1s;
+  }
+  .db-edit-btn:hover { background: var(--accent-light); }
+  .db-del-btn:hover { background: #fdecea; }
+  .db-edit-form { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  #auth-section .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .admin-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .admin-input {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+    box-sizing: border-box;
+    transition: border-color 0.12s;
+  }
+  .admin-input:focus { outline: none; border-color: var(--accent); }
+
+  .admin-btn {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 9px;
+    cursor: pointer;
+    border: none;
+    transition: background 0.13s, opacity 0.13s;
+  }
+  .admin-btn.primary { background: var(--accent); color: #fff; }
+  .admin-btn.primary:hover { background: var(--accent-dark); }
+  .admin-btn.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .admin-btn.secondary {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .admin-btn.secondary:hover { border-color: var(--accent); color: var(--accent-dark); }
+  .admin-btn.danger { background: #fdecea; color: #c0392b; border: 1px solid #f5c6c0; }
+  .admin-btn.danger:hover { background: #fad4d0; }
+
+  .admin-msg {
+    font-size: 12px;
+    padding: 9px 13px;
+    border-radius: 8px;
+    display: none;
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .admin-msg.success { background: #eaf7ec; color: #1e7e34; display: block; }
+  .admin-msg.error   { background: #fdecea; color: #c0392b; display: block; }
+  .admin-msg.info    { background: var(--accent-light); color: var(--accent-dark); display: block; }
+
+  /* Add form */
+  #add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-row-3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+  .admin-select {
+    width: 100%;
+    padding: 9px 12px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+    box-sizing: border-box;
+    transition: border-color 0.12s;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%2377695c'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 30px;
+  }
+  .admin-select:focus { outline: none; border-color: var(--accent); }
+
+  /* Custom list */
+  #custom-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .custom-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 12.5px;
+  }
+  .custom-item .ci-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc; flex-shrink: 0; margin-top: 4px;
+  }
+  .custom-item .ci-dot.ok { background: #7fb373; }
+  .custom-item .ci-info { flex: 1; }
+  .custom-item .ci-name { font-weight: 700; color: var(--text); }
+  .custom-item .ci-addr { color: var(--muted); margin-top: 2px; font-size: 12px; }
+  .custom-item .ci-tags { margin-top: 3px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .ci-tag {
+    font-size: 10.5px;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border-radius: 5px;
+    padding: 1px 7px;
+    font-weight: 600;
+  }
+  .custom-item .ci-del {
+    background: none; border: none; cursor: pointer;
+    color: #c0392b; font-size: 15px; line-height: 1;
+    padding: 3px 5px; border-radius: 5px; flex-shrink: 0;
+    transition: background 0.1s;
+  }
+  .custom-item .ci-del:hover { background: #fdecea; }
+  .admin-empty {
+    font-size: 12px; color: var(--muted); text-align: center; padding: 18px 0;
+    border: 1px dashed var(--border); border-radius: 8px;
+  }
+
+  /* Export actions */
+  .admin-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  #admin-content { display: none; }
+
+</style>
+</head>
+<body>
+
+<div id="app">
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <h1>Crémiers-fromagers de Paris</h1>
+      <p class="subtitle">Carte interactive des établissements</p>
+      <span class="count-badge" id="count-badge">190 affichés sur 190 · 187 localisés</span>
+    </div>
+
+    <div class="controls">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Rechercher un établissement ou une rue…" autocomplete="off">
+      </div>
+      <div class="filter-row">
+        <label for="arr-filter">Arrondissement :</label>
+        <select id="arr-filter">
+          <option value="all">Tous</option>
+        <option value="1">1e arrondissement</option><option value="2">2e arrondissement</option><option value="3">3e arrondissement</option><option value="4">4e arrondissement</option><option value="5">5e arrondissement</option><option value="6">6e arrondissement</option><option value="7">7e arrondissement</option><option value="8">8e arrondissement</option><option value="9">9e arrondissement</option><option value="10">10e arrondissement</option><option value="11">11e arrondissement</option><option value="12">12e arrondissement</option><option value="13">13e arrondissement</option><option value="14">14e arrondissement</option><option value="15">15e arrondissement</option><option value="16">16e arrondissement</option><option value="17">17e arrondissement</option><option value="18">18e arrondissement</option><option value="19">19e arrondissement</option><option value="20">20e arrondissement</option></select>
+      </div>
+    </div>
+
+    <!-- Toggle adhérents -->
+    <div class="member-toggle-row">
+      <label class="toggle-switch">
+        <input type="checkbox" id="member-toggle">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="toggle-label" for="member-toggle">Adhérents FFF uniquement</span>
+      <span class="member-count" id="member-count">69 ✓</span>
+    </div>
+
+    <div id="shop-list">
+      <div class="shop-item geocoded" data-id="79">
+        <div class="name">
+          <span class="status-dot"></span>2F FROMAGES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">31 avenue Felix Faure, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="95">
+        <div class="name">
+          <span class="status-dot"></span>38 SAINT LOUIS
+          
+          <span class="arr-tag">4<sup>e</sup></span>
+        </div>
+        <div class="address">38 rue Saint Louis en l'Ile, 75004</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="42">
+        <div class="name">
+          <span class="status-dot"></span>500 PARIS LECOURBE
+          
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">18 rue Lecourbe, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="21">
+        <div class="name">
+          <span class="status-dot"></span>ALLEOSSE FROMAGER AFFINEUR
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">13 rue Poncelet, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="40">
+        <div class="name">
+          <span class="status-dot"></span>ANDROUET AFFIBELLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">17 rue des Belles Feuilles, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="165">
+        <div class="name">
+          <span class="status-dot"></span>ANDROUET AFFICAM
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">93 rue Cambronne, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="26">
+        <div class="name">
+          <span class="status-dot"></span>ANDROUET AFFIMOUFF
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">134 rue Mouffetard, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="1">
+        <div class="name">
+          <span class="status-dot"></span>ANDROUET AFFIPASS
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">1 rue Bois le Vent, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="63">
+        <div class="name">
+          <span class="status-dot"></span>ANDROUET AFFITERR
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">23 rue de la Terrasse, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="89">
+        <div class="name">
+          <span class="status-dot"></span>ANDROUET AFFIVERN
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">37 rue de Verneuil, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="20">
+        <div class="name">
+          <span class="status-dot"></span>ANDROUET HIRCUM
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">13 rue Daguerre, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="7">
+        <div class="name">
+          <span class="status-dot"></span>AU BON FROMAGE
+          
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">10 rue de l'Olive, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="27">
+        <div class="name">
+          <span class="status-dot"></span>AU COEUR DU MARCHE
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">138 rue de la Roquette, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="13">
+        <div class="name">
+          <span class="status-dot"></span>AU LAIT CRU
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">114 rue Ordener, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="136">
+        <div class="name">
+          <span class="status-dot"></span>AU PETIT FROMAGER
+          
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">69 rue Brancion, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="134">
+        <div class="name">
+          <span class="status-dot"></span>AUX BONS FROMAGES
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">64 rue de la Pompe, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="41">
+        <div class="name">
+          <span class="status-dot"></span>AUX FROMAGES DE NATION
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">176 boulevard de Charonne, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="177">
+        <div class="name">
+          <span class="status-dot"></span>CADM
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">114 RUE RAYMOND LOSSERAND, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="181">
+        <div class="name">
+          <span class="status-dot"></span>CARACTERES
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">17 RUE LE MAROIS, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="47">
+        <div class="name">
+          <span class="status-dot"></span>CASALOPEZ
+          
+          <span class="arr-tag">12<sup>e</sup></span>
+        </div>
+        <div class="address">2 rue du Rendez-Vous, 75012</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="169">
+        <div class="name">
+          <span class="status-dot"></span>CASEUS SAINT PAUL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">4<sup>e</sup></span>
+        </div>
+        <div class="address">97-99 rue St Antoine, 75004</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="59">
+        <div class="name">
+          <span class="status-dot"></span>CAUSSES
+          
+          <span class="arr-tag">3<sup>e</sup></span>
+        </div>
+        <div class="address">222 rue Saint Martin, 75003</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="117">
+        <div class="name">
+          <span class="status-dot"></span>CAUSSES
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">52 rue de la Rochefoucault, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="2">
+        <div class="name">
+          <span class="status-dot"></span>CHEESE LIFE
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">1 rue Bois le Vent, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="77">
+        <div class="name">
+          <span class="status-dot"></span>CHEESE OF THE WORLD
+          
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">30 boulevard Saint Germain, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="19">
+        <div class="name">
+          <span class="status-dot"></span>CHEZ VIRGINIE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">125 rue Caulaincourt, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="119">
+        <div class="name">
+          <span class="status-dot"></span>CHEZ VIRGINIE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">54 rue Damrémont, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="23">
+        <div class="name">
+          <span class="status-dot"></span>CORNER DU FROMAGER
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">130 rue de la ROQUETTE, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="127">
+        <div class="name">
+          <span class="status-dot"></span>CREME
+          
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">6 rue Julien Lacroix, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="151">
+        <div class="name">
+          <span class="status-dot"></span>CREMERIE DELACOUR EVCV
+          
+          <span class="arr-tag">8<sup>e</sup></span>
+        </div>
+        <div class="address">8 rue Corvetto, 75008</div>
+      </div>
+    
+      <div class="shop-item failed" data-id="189">
+        <div class="name">
+          <span class="status-dot"></span>CREMERIE DES BATIGNOLLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">39 rue des Batignolles, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="101">
+        <div class="name">
+          <span class="status-dot"></span>CREMERIE FRESCOLET
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">42 rue Pigalle, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="65">
+        <div class="name">
+          <span class="status-dot"></span>CREMERIE TROCADERO
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">24 rue de Lubeck, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="172">
+        <div class="name">
+          <span class="status-dot"></span>CYRILLE HARDOUIN
+          
+          <span class="arr-tag">12<sup>e</sup></span>
+        </div>
+        <div class="address">MARCHE COUVERT BEAUVAU place d'Aligre, 75012</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="124">
+        <div class="name">
+          <span class="status-dot"></span>DUBOIS AUTEUIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">58 rue d'Auteuil, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="133">
+        <div class="name">
+          <span class="status-dot"></span>DUBOIS GM PARIS
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">64 boulevard Haussmann, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="107">
+        <div class="name">
+          <span class="status-dot"></span>DUBOIS GOURMET-FROMAGERIE LAURENT DUBOIS
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">47 ter Boulevard St Germain, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="159">
+        <div class="name">
+          <span class="status-dot"></span>FERME SAINT QUENTIN
+          
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">85 bis, boulevard Magenta, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="123">
+        <div class="name">
+          <span class="status-dot"></span>FLEUR DE LAIT
+          
+          <span class="arr-tag">3<sup>e</sup></span>
+        </div>
+        <div class="address">57 rue de Bretagne, 75003</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="168">
+        <div class="name">
+          <span class="status-dot"></span>FORMATICUS
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">97 rue Nollet, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="12">
+        <div class="name">
+          <span class="status-dot"></span>FRANCOIS PRIET FROMAGER
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">113 rue de la Roquette, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="55">
+        <div class="name">
+          <span class="status-dot"></span>FRANCOIS PRIET FROMAGER
+          
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">214 rue des Pyrenées, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="174">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGER GAUTIER
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">MCH de Saint-Quentin, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="85">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGER LILLO
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">35 rue des Belles Feuilles, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="31">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE A LA MOTTE
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">15 avenue d'Eylau, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="70">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE ACDM
+          
+          <span class="arr-tag">12<sup>e</sup></span>
+        </div>
+        <div class="address">28 rue d'Aligre, 75012</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="185">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE ANCELOT
+          
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">119 AVENUE GAMBETTA, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="173">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE ANNIE ET GILLES QUIECOUT
+          
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">Marché de St Quentin, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="8">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE BEAUFILS
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">100 rue Raymond Losserand, 75014</div>
+      </div>
+    
+      <div class="shop-item failed" data-id="14">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE BEAUFILS
+          
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">20 rue cadet 75009 paris, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="140">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE BLANCHE
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">70 rue Blanche, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="104">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE CAULAINCOURT
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">47 rue Caulaincourt, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="156">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE CHAMBI
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">81 avenue de Saint Ouen, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="126">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE CHARLICOT
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">6 rue de la Folie Méricourt, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="73">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE CHATAIGNER
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">3 rue des Martyrs, 75009</div>
+      </div>
+    
+      <div class="shop-item failed" data-id="188">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DE COURCELLES
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">160 boulevard Berthier, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="163">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DE MONTMARTRE
+          
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">9 rue du Poteau, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="3">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DE PASSY
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">1 rue bois le vent, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="66">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DES 5
+          
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">25 rue Geoffroy St Hilaire, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="76">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DES BUTTES CHAUMONT
+          
+          <span class="arr-tag">19<sup>e</sup></span>
+        </div>
+        <div class="address">30 avenue Simon Bolivar, 75019</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="4">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DES FEUILLANTINES
+          
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">1 rue des Feuillantines, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="175">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DIDOT
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">108 rue didot, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="114">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DU BAS MONTMARTRE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">5 rue Versigny, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="45">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DU PANTHEON
+          
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">198 rue Saint Jacques, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="98">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE DU RENDEZ-VOUS
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">12<sup>e</sup></span>
+        </div>
+        <div class="address">4 rue du Rendez-vous, 75012</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="187">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE FERDINAND
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">42 RUE DUNKERQUE, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="51">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE FERNIN
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">204 rue du Faubourg Saint Martin, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="164">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE FRANGINS
+          
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">9 rue Jean Pierre Timbaud, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="62">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE GRIFFON
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">23 bis avenue de la Motte Picquet, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="106">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE HISADA
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">1<sup>e</sup></span>
+        </div>
+        <div class="address">47 rue Richelieu, 75001</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="96">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE JOUANNAULT
+          
+          <span class="arr-tag">3<sup>e</sup></span>
+        </div>
+        <div class="address">39 rue de Bretagne, 75003</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="32">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE L'ALPAGE PARIS
+          
+          <span class="arr-tag">12<sup>e</sup></span>
+        </div>
+        <div class="address">15 rue d'Aligre, 75012</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="146">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE LA FONTAINE
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">75 rue Jean de la Fontaine, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="82">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE LA QUATRIEME
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">13<sup>e</sup></span>
+        </div>
+        <div class="address">32 rue de l'Esperance, 75013</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="46">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE LAURENT DUBOIS (DUPLEIX)
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">2 rue de Lourmel, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="15">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE LEFORT
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">118 rue de Belleville, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="155">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE MARTINE DUBOIS
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">80 rue de Tocqueville, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="108">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE MOZART
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">48 bis rue Mozart, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="64">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE NANINA
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">24 bis rue Basfroi, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="130">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE OBERKAMPF CHEZ L'AUVERGNAT
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">60 rue Oberkampf, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="87">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE PERGOLESE
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">36 rue Pergolèse, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="94">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE PIERRE ALEXANDRE
+          
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">38 rue de Varenne, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="68">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE QUATREHOMME RUE DES MARTYRS
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">26 rue des Martyrs, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="74">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE RIONDET
+          
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">3 rue du Capitaine Ferber, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="186">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE ROLAND ROUSSELET AFFINEUR
+          
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">105 RUE MOUFFETARD, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="36">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SADIKI MAHFOUD
+          
+          <span class="arr-tag">19<sup>e</sup></span>
+        </div>
+        <div class="address">16 rue de Meaux, 75019</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="6">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">12<sup>e</sup></span>
+        </div>
+        <div class="address">1 rue Marsoulan, 75012</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="16">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">118 rue Mouffetard, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="30">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">140 rue de Belleville, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="43">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">19 rue Alphonse Daudet, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="54">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">213 bis Avenue de Versailles, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="56">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">215 rue du Faubourg Saint Martin, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="109">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">48 rue des Martyrs, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="137">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">7 rue Bayen, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="144">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">12<sup>e</sup></span>
+        </div>
+        <div class="address">73 Avenue du Général Bizot, 75012</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="148">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">4<sup>e</sup></span>
+        </div>
+        <div class="address">77 rue Saint Antoine, 75004</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="150">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">8 bis rue Lebon, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="152">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">8 rue Delambre, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="161">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">86 rue Raymond Losserand, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="25">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SAINT CHARLES SIEGE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">133 rue Saint Charles, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="99">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SANDERS
+          
+          <span class="arr-tag">6<sup>e</sup></span>
+        </div>
+        <div class="address">4 rue Lobineau, 75006</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="69">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGERIE SECRETAN
+          
+          <span class="arr-tag">19<sup>e</sup></span>
+        </div>
+        <div class="address">27 Avenue Secrétan, 75019</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="24">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">131 rue Mouffetard, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="49">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">20 rue Lepic, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="53">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">212 rue de la Convention, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="80">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">31 rue Clerc, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="102">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">43 rue de Levis, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="121">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">54/60 rue du Faubourg Saint Denis, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="139">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">7 rue Poncelet, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="141">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">71 Avenue du Général Leclerc, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="149">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">79 rue de Courcelles, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="153">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">2<sup>e</sup></span>
+        </div>
+        <div class="address">8 rue des Petits Carreaux, 75002</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="157">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">83 rue Lecourbe, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="166">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET DETAIL
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">94 rue du Commerce, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="58">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET RAMAGE
+          
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">22 rue Ramey, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="75">
+        <div class="name">
+          <span class="status-dot"></span>FROMAGES ET RAMAGE
+          
+          <span class="arr-tag">19<sup>e</sup></span>
+        </div>
+        <div class="address">3 rue Eugene Jumin, 75019</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="182">
+        <div class="name">
+          <span class="status-dot"></span>Fromaticus
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">16 RUE BROCHANT, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="178">
+        <div class="name">
+          <span class="status-dot"></span>G.A BRUNE
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">1 AVENUE DE LA PORTE DE MONTROUGE, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="38">
+        <div class="name">
+          <span class="status-dot"></span>GENTY GASTRONOMIE
+          
+          <span class="arr-tag">13<sup>e</sup></span>
+        </div>
+        <div class="address">169 bd Vincent Auriol, 75013</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="18">
+        <div class="name">
+          <span class="status-dot"></span>JULHES PARIS
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">120 rue de Charonne, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="71">
+        <div class="name">
+          <span class="status-dot"></span>JULHES PARIS
+          
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">28 rue du Faubourg Poissonnière, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="81">
+        <div class="name">
+          <span class="status-dot"></span>JULHES PARIS
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">31 rue St Maur, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="125">
+        <div class="name">
+          <span class="status-dot"></span>JULHES PARIS
+          
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">59 rue du Faubourg St Martin, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="122">
+        <div class="name">
+          <span class="status-dot"></span>JULHES PARIS SAS
+          
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">54/60 rue du Faubourg Saint Denis, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="35">
+        <div class="name">
+          <span class="status-dot"></span>L UNIVERS DU FROMAGE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">16 rue Chanzy, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="88">
+        <div class="name">
+          <span class="status-dot"></span>L'AMIE PAULETTE
+          
+          <span class="arr-tag">13<sup>e</sup></span>
+        </div>
+        <div class="address">37 rue Bobillot, 75013</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="29">
+        <div class="name">
+          <span class="status-dot"></span>LA BOUTIQUE GOURMANDE
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">14 rue de l'Amiral Mouchez, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="83">
+        <div class="name">
+          <span class="status-dot"></span>LA BUTTE FROMAGERE
+          
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">32 rue des Abbesses, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="162">
+        <div class="name">
+          <span class="status-dot"></span>LA COOP
+          
+          <span class="arr-tag">6<sup>e</sup></span>
+        </div>
+        <div class="address">9 rue Corneille, 75006</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="100">
+        <div class="name">
+          <span class="status-dot"></span>LA CREMERIE CAMELIAS
+          
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">41 rue de Lancry, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="44">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME D'ALEXANDRE
+          
+          <span class="arr-tag">6<sup>e</sup></span>
+        </div>
+        <div class="address">19 rue Saint Placide, 75006</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="39">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME D'AVRON
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">17 rue d'Avron, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="97">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME DE PASSY
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">39 rue de l'Annonciation, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="184">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME DE PEPONE
+          
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">94 AV SAINT OUEN, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="129">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME DES ARENES
+          
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">60 rue Monge, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="60">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME DU HAMEAU
+          
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">223 rue de la Croix Nivert, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="52">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME DUVERNET
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">21 rue Mouton Duvernet, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="147">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME SAINT AUBIN
+          
+          <span class="arr-tag">4<sup>e</sup></span>
+        </div>
+        <div class="address">76 rue Saint Louis en l'Ile, 75004</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="86">
+        <div class="name">
+          <span class="status-dot"></span>LA FERME SAINT HUBERT
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">36 rue Marguerite de Rochechouart, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="160">
+        <div class="name">
+          <span class="status-dot"></span>LA FERMETTE DE MONTORGUEIL
+          
+          <span class="arr-tag">2<sup>e</sup></span>
+        </div>
+        <div class="address">86 rue Montorgueil, 75002</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="50">
+        <div class="name">
+          <span class="status-dot"></span>LA FROMAGERIE DE GRENELLE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">204 rue de Grenelle, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="61">
+        <div class="name">
+          <span class="status-dot"></span>LA FROMAGERIE DE PARIS
+          
+          <span class="arr-tag">12<sup>e</sup></span>
+        </div>
+        <div class="address">229 rue de Charenton, 75012</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="120">
+        <div class="name">
+          <span class="status-dot"></span>LA FROMAGERIE DU LOUVRE
+          
+          <span class="arr-tag">1<sup>e</sup></span>
+        </div>
+        <div class="address">54 rue de l'arbre sec, 75001</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="103">
+        <div class="name">
+          <span class="status-dot"></span>LA FROMAGERIE DU MOULIN
+          
+          <span class="arr-tag">13<sup>e</sup></span>
+        </div>
+        <div class="address">45 rue du Moulin de la Pointe, 75013</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="0">
+        <div class="name">
+          <span class="status-dot"></span>LA FROMAGERIE GONCOURT
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">1 rue Abel Rabaud, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="28">
+        <div class="name">
+          <span class="status-dot"></span>LA FROMAGERIE GONCOURT JONQUIERE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">14 rue de la Jonquière, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="116">
+        <div class="name">
+          <span class="status-dot"></span>LA FROMAGERIE LASNIER
+          
+          <span class="arr-tag">13<sup>e</sup></span>
+        </div>
+        <div class="address">51 rue de Tolbiac, 75013</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="72">
+        <div class="name">
+          <span class="status-dot"></span>LA FROMAGERIE LOSSERAND
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">29 rue Raymond Losserand, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="93">
+        <div class="name">
+          <span class="status-dot"></span>LA GRANDE EPICERIE DE PARIS
+          
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">38 rue de SEVRES, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="176">
+        <div class="name">
+          <span class="status-dot"></span>LA KAVE DU FROMAGER
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">221 boulevard voltaire, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="145">
+        <div class="name">
+          <span class="status-dot"></span>LA LAITERIE DE PARIS
+          
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">74 rue des poissonniers, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="33">
+        <div class="name">
+          <span class="status-dot"></span>LA MAISON DE LA MOZZARELLA
+          
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">15 rue Violet, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="179">
+        <div class="name">
+          <span class="status-dot"></span>LA MELODIE DES FROMAGES
+          
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">4 rue bellart, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="84">
+        <div class="name">
+          <span class="status-dot"></span>LA PETITE FERME D'INES
+          
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">33 bis Rue Charlot, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="111">
+        <div class="name">
+          <span class="status-dot"></span>LA SOURIS GOURMANDE
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">5 rue des Martyrs, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="118">
+        <div class="name">
+          <span class="status-dot"></span>LA TABLE DE MAITRE CORBEAU
+          
+          <span class="arr-tag">16<sup>e</sup></span>
+        </div>
+        <div class="address">52 rue St Didier, 75016</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="9">
+        <div class="name">
+          <span class="status-dot"></span>LAITERIE GILBERT PARIS ALESIA
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">102 rue d'Alésia, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="142">
+        <div class="name">
+          <span class="status-dot"></span>LAITERIE GILBERT PARIS NATION
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">72 rue de Montreuil, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="143">
+        <div class="name">
+          <span class="status-dot"></span>LAITERIE LA CHAPELLE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">18<sup>e</sup></span>
+        </div>
+        <div class="address">72 rue Philippe de Girard, 75018</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="167">
+        <div class="name">
+          <span class="status-dot"></span>LE BON GOUT FERMIER
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">96 rue Lemercier, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="183">
+        <div class="name">
+          <span class="status-dot"></span>LE CALENDOS (MCRR)
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">11 Rue Pierre Demours, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="67">
+        <div class="name">
+          <span class="status-dot"></span>LES FROMAGES DE GAMBETTA
+          
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">259 rue des Pyrenées, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="180">
+        <div class="name">
+          <span class="status-dot"></span>LES FROMAGES DE MARIE
+          
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">116 RUE SAINT CHARLES, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="171">
+        <div class="name">
+          <span class="status-dot"></span>LES FROMAGES DES BATIGNOLLES
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">Maché des Batignolles, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="37">
+        <div class="name">
+          <span class="status-dot"></span>LES INSEPARABLES SOCIETE L.D.T.F
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">16 rue Saint Ferdinand, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="105">
+        <div class="name">
+          <span class="status-dot"></span>LES MOINES DU 17 EME
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">47 rue des Moines, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="48">
+        <div class="name">
+          <span class="status-dot"></span>LOU BIARNES
+          
+          <span class="arr-tag">19<sup>e</sup></span>
+        </div>
+        <div class="address">2 rue du Rhin, 75019</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="170">
+        <div class="name">
+          <span class="status-dot"></span>LYRE
+          
+          <span class="arr-tag">17<sup>e</sup></span>
+        </div>
+        <div class="address">98 rue des Dames, 75017</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="17">
+        <div class="name">
+          <span class="status-dot"></span>MARIE ANNE CANTIN INTERNATIONAL
+          
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">12 rue du Champ de Mars, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="5">
+        <div class="name">
+          <span class="status-dot"></span>MD CHEESE/ LA CAVE AUX FROMAGES
+          
+          <span class="arr-tag">20<sup>e</sup></span>
+        </div>
+        <div class="address">1 rue du Retrait, 75020</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="90">
+        <div class="name">
+          <span class="status-dot"></span>MONBLEU FROMAGERIE
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">37 rue du Faubourg Montmartre, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="115">
+        <div class="name">
+          <span class="status-dot"></span>NICOLE BARTHELEMY FROMAGER
+          
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">51 rue de Grenelle, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="34">
+        <div class="name">
+          <span class="status-dot"></span>PAISANO
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">159 rue Saint-Maur, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="92">
+        <div class="name">
+          <span class="status-dot"></span>PAROLES DE FROMAGERS
+          
+          <span class="arr-tag">4<sup>e</sup></span>
+        </div>
+        <div class="address">37 rue Saint-Louis en l'Île, 75004</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="132">
+        <div class="name">
+          <span class="status-dot"></span>QUATREHOMME SAS
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">62 rue de Sèvres, 75007</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="113">
+        <div class="name">
+          <span class="status-dot"></span>RATAFIA
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">5 rue SAINT BERNARD, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="78">
+        <div class="name">
+          <span class="status-dot"></span>SAISONS FROMAGERIE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">3<sup>e</sup></span>
+        </div>
+        <div class="address">30 rue du Grenier Saint Lazare, 75003</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="110">
+        <div class="name">
+          <span class="status-dot"></span>SARL VACROUX
+          
+          <span class="arr-tag">14<sup>e</sup></span>
+        </div>
+        <div class="address">5 rue Daguerre, 75014</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="11">
+        <div class="name">
+          <span class="status-dot"></span>SOCIETE LAIR RUSSO
+          
+          <span class="arr-tag">5<sup>e</sup></span>
+        </div>
+        <div class="address">111 rue Mouffetard, 75005</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="10">
+        <div class="name">
+          <span class="status-dot"></span>SOURCE FROMAGERIE ET CAVE
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">102 rue du Chemin Vert, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="131">
+        <div class="name">
+          <span class="status-dot"></span>TAKA ET VERMO
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">61 bis rue du Faubourg Saint-Denis, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="128">
+        <div class="name">
+          <span class="status-dot"></span>TERROIR &amp; TRADITION SASU
+          
+          <span class="arr-tag">10<sup>e</sup></span>
+        </div>
+        <div class="address">60 rue du Faubourg Saint Martin, 75010</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="57">
+        <div class="name">
+          <span class="status-dot"></span>TERROIR ET NATURE
+          
+          <span class="arr-tag">9<sup>e</sup></span>
+        </div>
+        <div class="address">22 rue de Douai, 75009</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="112">
+        <div class="name">
+          <span class="status-dot"></span>TERROIRS D'AVENIR
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">5 rue Paul Bert, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="138">
+        <div class="name">
+          <span class="status-dot"></span>TERROIRS D'AVENIR
+          <span class="member-badge">⭐ Adhérent</span>
+          <span class="arr-tag">2<sup>e</sup></span>
+        </div>
+        <div class="address">7 rue du Nil, 75002</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="154">
+        <div class="name">
+          <span class="status-dot"></span>TERROIRS D'AVENIR
+          
+          <span class="arr-tag">2<sup>e</sup></span>
+        </div>
+        <div class="address">8 rue du NIl, 75002</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="158">
+        <div class="name">
+          <span class="status-dot"></span>TERROIRS D'AVENIR
+          
+          <span class="arr-tag">11<sup>e</sup></span>
+        </div>
+        <div class="address">84 rue de la Folie Méricourt, 75011</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="22">
+        <div class="name">
+          <span class="status-dot"></span>THOMAS ARTISAN FROMAGER
+          
+          <span class="arr-tag">4<sup>e</sup></span>
+        </div>
+        <div class="address">13 rue Rambuteau, 75004</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="135">
+        <div class="name">
+          <span class="status-dot"></span>THOMAS FROMAGER
+          
+          <span class="arr-tag">15<sup>e</sup></span>
+        </div>
+        <div class="address">66 rue du Commerce, 75015</div>
+      </div>
+    
+      <div class="shop-item geocoded" data-id="91">
+        <div class="name">
+          <span class="status-dot"></span>TRUFFESFOLIES
+          
+          <span class="arr-tag">7<sup>e</sup></span>
+        </div>
+        <div class="address">37 rue MALAR, 75007</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Données géocodées via <a href="https://adresse.data.gouv.fr" target="_blank">BAN</a></span>
+      <button class="export-btn" id="export-btn" title="Télécharger les coordonnées géocodées">Exporter CSV</button>
+    </div>
+  </aside>
+
+  <div id="map" class="leaflet-container leaflet-touch leaflet-retina leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom" tabindex="0">
+    <div id="loading-overlay" class="hidden">
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <h2 id="loading-title">Chargement depuis le cache</h2>
+        <p id="loading-text">Données déjà géocodées, chargement instantané.</p>
+        <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill" style="width: 100%;"></div></div>
+        <div id="error-message"></div>
+      </div>
+    </div>
+  <div class="leaflet-pane leaflet-map-pane" style="transform: translate3d(0px, 0px, 0px);"><div class="leaflet-pane leaflet-tile-pane"><div class="leaflet-layer " style="z-index: 1; opacity: 1;"><div class="leaflet-tile-container leaflet-zoom-animated" style="z-index: 19; transform: translate3d(-471px, -347px, 0px) scale(1);"><img alt="" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/13/4148/2817@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(786px, 402px, 0px); opacity: 1;"><img alt="" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/13/4149/2817@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1042px, 402px, 0px); opacity: 1;"><img alt="" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/13/4148/2818@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(786px, 658px, 0px); opacity: 1;"><img alt="" src="https://d.basemaps.cartocdn.com/rastertiles/voyager/13/4149/2818@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1042px, 658px, 0px); opacity: 1;"><img alt="" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/13/4148/2816@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(786px, 146px, 0px); opacity: 1;"><img alt="" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/13/4149/2816@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1042px, 146px, 0px); opacity: 1;"><img alt="" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/13/4147/2817@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(530px, 402px, 0px); opacity: 1;"><img alt="" src="https://d.basemaps.cartocdn.com/rastertiles/voyager/13/4150/2817@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1298px, 402px, 0px); opacity: 1;"><img alt="" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/13/4147/2818@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(530px, 658px, 0px); opacity: 1;"><img alt="" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/13/4150/2818@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1298px, 658px, 0px); opacity: 1;"><img alt="" src="https://d.basemaps.cartocdn.com/rastertiles/voyager/13/4148/2819@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(786px, 914px, 0px); opacity: 1;"><img alt="" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/13/4149/2819@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1042px, 914px, 0px); opacity: 1;"><img alt="" src="https://d.basemaps.cartocdn.com/rastertiles/voyager/13/4147/2816@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(530px, 146px, 0px); opacity: 1;"><img alt="" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/13/4150/2816@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1298px, 146px, 0px); opacity: 1;"><img alt="" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/13/4147/2819@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(530px, 914px, 0px); opacity: 1;"><img alt="" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/13/4150/2819@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1298px, 914px, 0px); opacity: 1;"><img alt="" src="https://d.basemaps.cartocdn.com/rastertiles/voyager/13/4146/2817@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(274px, 402px, 0px); opacity: 1;"><img alt="" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/13/4151/2817@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1554px, 402px, 0px); opacity: 1;"><img alt="" src="https://a.basemaps.cartocdn.com/rastertiles/voyager/13/4146/2818@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(274px, 658px, 0px); opacity: 1;"><img alt="" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/13/4151/2818@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1554px, 658px, 0px); opacity: 1;"><img alt="" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/13/4146/2816@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(274px, 146px, 0px); opacity: 1;"><img alt="" src="https://d.basemaps.cartocdn.com/rastertiles/voyager/13/4151/2816@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1554px, 146px, 0px); opacity: 1;"><img alt="" src="https://b.basemaps.cartocdn.com/rastertiles/voyager/13/4146/2819@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(274px, 914px, 0px); opacity: 1;"><img alt="" src="https://c.basemaps.cartocdn.com/rastertiles/voyager/13/4151/2819@2x.png" class="leaflet-tile leaflet-tile-loaded" style="width: 256px; height: 256px; transform: translate3d(1554px, 914px, 0px); opacity: 1;"></div></div></div><div class="leaflet-pane leaflet-overlay-pane"></div><div class="leaflet-pane leaflet-shadow-pane"></div><div class="leaflet-pane leaflet-marker-pane"><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(226px, 394px, 0px); z-index: 394; opacity: 1;"><div class="shop-marker member"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(941px, 117px, 0px); z-index: 117; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(929px, 548px, 0px); z-index: 548; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(731px, 683px, 0px); z-index: 683; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(713px, 629px, 0px); z-index: 629; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(659px, 659px, 0px); z-index: 659; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(526px, 568px, 0px); z-index: 568; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(568px, 513px, 0px); z-index: 513; opacity: 1;"><div class="shop-marker member"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(574px, 592px, 0px); z-index: 592; opacity: 1;"><div><span>3</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(549px, 645px, 0px); z-index: 645; opacity: 1;"><div><span>4</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(982px, 427px, 0px); z-index: 427; opacity: 1;"><div class="shop-marker member"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(1001px, 562px, 0px); z-index: 562; opacity: 1;"><div class="shop-marker member"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(1010px, 485px, 0px); z-index: 485; opacity: 1;"><div><span>3</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(903px, 275px, 0px); z-index: 275; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(900px, 230px, 0px); z-index: 230; opacity: 1;"><div><span>4</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(980px, 294px, 0px); z-index: 294; opacity: 1;"><div><span>5</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(757px, 92px, 0px); z-index: 92; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(873px, 130px, 0px); z-index: 130; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(821px, 280px, 0px); z-index: 280; opacity: 1;"><div><span>3</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(821px, 174px, 0px); z-index: 174; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(760px, 254px, 0px); z-index: 254; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(664px, 233px, 0px); z-index: 233; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(678px, 175px, 0px); z-index: 175; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(774px, 174px, 0px); z-index: 174; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(724px, 227px, 0px); z-index: 227; opacity: 1;"><div><span>8</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(565px, 231px, 0px); z-index: 231; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-medium leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(614px, 170px, 0px); z-index: 170; opacity: 1;"><div><span>10</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(689px, 90px, 0px); z-index: 90; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(559px, 57px, 0px); z-index: 57; opacity: 1;"><div><span>3</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(633px, 72px, 0px); z-index: 72; opacity: 1;"><div><span>6</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(815px, 640px, 0px); z-index: 640; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(754px, 600px, 0px); z-index: 600; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(618px, 297px, 0px); z-index: 297; opacity: 1;"><div class="shop-marker member"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(544px, 403px, 0px); z-index: 403; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(622px, 437px, 0px); z-index: 437; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(571px, 378px, 0px); z-index: 378; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(651px, 477px, 0px); z-index: 477; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(693px, 522px, 0px); z-index: 522; opacity: 1;"><div><span>8</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(650px, 344px, 0px); z-index: 344; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(709px, 311px, 0px); z-index: 311; opacity: 1;"><div><span>9</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(729px, 423px, 0px); z-index: 423; opacity: 1;"><div><span>7</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(945px, 376px, 0px); z-index: 376; opacity: 1;"><div class="shop-marker member"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(905px, 429px, 0px); z-index: 429; opacity: 1;"><div><span>5</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(835px, 324px, 0px); z-index: 324; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(859px, 447px, 0px); z-index: 447; opacity: 1;"><div><span>3</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(877px, 372px, 0px); z-index: 372; opacity: 1;"><div><span>7</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(372px, 181px, 0px); z-index: 181; opacity: 1;"><div><span>7</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(514px, 102px, 0px); z-index: 102; opacity: 1;"><div><span>5</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(485px, 155px, 0px); z-index: 155; opacity: 1;"><div><span>5</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(303px, 223px, 0px); z-index: 223; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(355px, 305px, 0px); z-index: 305; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(263px, 330px, 0px); z-index: 330; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(304px, 298px, 0px); z-index: 298; opacity: 1;"><div><span>4</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(271px, 376px, 0px); z-index: 376; opacity: 1;"><div><span>4</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(435px, 378px, 0px); z-index: 378; opacity: 1;"><div><span>4</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(342px, 569px, 0px); z-index: 569; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(363px, 442px, 0px); z-index: 442; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(336px, 495px, 0px); z-index: 495; opacity: 1;"><div><span>5</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(170px, 542px, 0px); z-index: 542; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(193px, 455px, 0px); z-index: 455; opacity: 1;"><div><span>2</span></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(388px, 559px, 0px); z-index: 559; opacity: 1;"><div class="shop-marker member"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(478px, 649px, 0px); z-index: 649; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -7px; margin-top: -7px; width: 14px; height: 14px; transform: translate3d(421px, 597px, 0px); z-index: 597; opacity: 1;"><div class="shop-marker"></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(494px, 594px, 0px); z-index: 594; opacity: 1;"><div><span>3</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(529px, 450px, 0px); z-index: 450; opacity: 1;"><div><span>4</span></div></div><div class="leaflet-marker-icon marker-cluster marker-cluster-small leaflet-zoom-animated leaflet-interactive" tabindex="0" role="button" style="margin-left: -20px; margin-top: -20px; width: 40px; height: 40px; transform: translate3d(439px, 492px, 0px); z-index: 492; opacity: 1;"><div><span>4</span></div></div></div><div class="leaflet-pane leaflet-tooltip-pane"></div><div class="leaflet-pane leaflet-popup-pane"></div><div class="leaflet-proxy leaflet-zoom-animated" style="transform: translate3d(1.06216e+06px, 721462px, 0px) scale(4096);"></div></div><div class="leaflet-control-container"><div class="leaflet-top leaflet-left"><div class="leaflet-control-zoom leaflet-bar leaflet-control"><a class="leaflet-control-zoom-in" href="#" title="Zoom in" role="button" aria-label="Zoom in" aria-disabled="false"><span aria-hidden="true">+</span></a><a class="leaflet-control-zoom-out" href="#" title="Zoom out" role="button" aria-label="Zoom out" aria-disabled="false"><span aria-hidden="true">−</span></a></div></div><div class="leaflet-top leaflet-right"></div><div class="leaflet-bottom leaflet-left"></div><div class="leaflet-bottom leaflet-right"><div class="leaflet-control-attribution leaflet-control"><a href="https://leafletjs.com" title="A JavaScript library for interactive maps"><svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8" class="leaflet-attribution-flag"><path fill="#4C7BE1" d="M0 0h12v4H0z"></path><path fill="#FFD500" d="M0 4h12v3H0z"></path><path fill="#E0BC00" d="M0 7h12v1H0z"></path></svg> Leaflet</a> <span aria-hidden="true">|</span> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a></div></div></div></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+/* ================== DONNÉES ================== */
+const SHOPS = [{"id":0,"name":"LA FROMAGERIE GONCOURT","street":"1 rue Abel Rabaud","cp":"75011","city":"PARIS","arr":11,"phone":"143579128","member":true},{"id":1,"name":"ANDROUET AFFIPASS","street":"1 rue Bois le Vent","cp":"75016","city":"PARIS","arr":16,"phone":"01 42 24 17 52","member":true},{"id":2,"name":"CHEESE LIFE","street":"1 rue Bois le Vent","cp":"75016","city":"PARIS","arr":16,"phone":null,"member":false},{"id":3,"name":"FROMAGERIE DE PASSY","street":"1 rue bois le vent","cp":"75016","city":"PARIS","arr":16,"phone":"744503803","member":true},{"id":4,"name":"FROMAGERIE DES FEUILLANTINES","street":"1 rue des Feuillantines","cp":"75005","city":"PARIS","arr":5,"phone":"09 52 81 84 98","member":false},{"id":5,"name":"MD CHEESE/ LA CAVE AUX FROMAGES","street":"1 rue du Retrait","cp":"75020","city":"PARIS","arr":20,"phone":"01 43 66 64 60","member":false},{"id":6,"name":"FROMAGERIE SAINT CHARLES","street":"1 rue Marsoulan","cp":"75012","city":"PARIS","arr":12,"phone":null,"member":true},{"id":7,"name":"AU BON FROMAGE","street":"10 rue de l'Olive","cp":"75018","city":"PARIS","arr":18,"phone":null,"member":false},{"id":8,"name":"FROMAGERIE BEAUFILS","street":"100 rue Raymond Losserand","cp":"75014","city":"PARIS","arr":14,"phone":null,"member":false},{"id":9,"name":"LAITERIE GILBERT PARIS ALESIA","street":"102 rue d'Alésia","cp":"75014","city":"PARIS","arr":14,"phone":null,"member":false},{"id":10,"name":"SOURCE FROMAGERIE ET CAVE","street":"102 rue du Chemin Vert","cp":"75011","city":"PARIS","arr":11,"phone":"09 86 36 78 21","member":true},{"id":11,"name":"SOCIETE LAIR RUSSO","street":"111 rue Mouffetard","cp":"75005","city":"PARIS","arr":5,"phone":null,"member":false},{"id":12,"name":"FRANCOIS PRIET FROMAGER","street":"113 rue de la Roquette","cp":"75011","city":"PARIS","arr":11,"phone":"01 43 79 31 41","member":false},{"id":13,"name":"AU LAIT CRU","street":"114 rue Ordener","cp":"75018","city":"PARIS","arr":18,"phone":"183063093","member":true},{"id":14,"name":"FROMAGERIE BEAUFILS","street":"20 rue cadet 75009 paris","cp":"75020","city":"PARIS","arr":20,"phone":"01 46 36 61 71","member":false},{"id":15,"name":"FROMAGERIE LEFORT","street":"118 rue de Belleville","cp":"75020","city":"PARIS","arr":20,"phone":null,"member":true},{"id":16,"name":"FROMAGERIE SAINT CHARLES","street":"118 rue Mouffetard","cp":"75005","city":"PARIS","arr":5,"phone":"01 45 35 13 19","member":true},{"id":17,"name":"MARIE ANNE CANTIN INTERNATIONAL","street":"12 rue du Champ de Mars","cp":"75007","city":"PARIS","arr":7,"phone":"01 45 50 43 94","member":false},{"id":18,"name":"JULHES PARIS","street":"120 rue de Charonne","cp":"75011","city":"PARIS","arr":11,"phone":"01 44 83 96 30","member":false},{"id":19,"name":"CHEZ VIRGINIE","street":"125 rue Caulaincourt","cp":"75018","city":"PARIS","arr":18,"phone":"01 42 58 14 57","member":true},{"id":20,"name":"ANDROUET HIRCUM","street":"13 rue Daguerre","cp":"75014","city":"PARIS","arr":14,"phone":"01 40 47 53 03","member":true},{"id":21,"name":"ALLEOSSE FROMAGER AFFINEUR","street":"13 rue Poncelet","cp":"75017","city":"PARIS","arr":17,"phone":"01 46 22 50 45","member":true},{"id":22,"name":"THOMAS ARTISAN FROMAGER","street":"13 rue Rambuteau","cp":"75004","city":"PARIS","arr":4,"phone":"01 42 72 73 56","member":false},{"id":23,"name":"CORNER DU FROMAGER","street":"130 rue de la ROQUETTE","cp":"75011","city":"PARIS","arr":11,"phone":null,"member":false},{"id":24,"name":"FROMAGES ET DETAIL","street":"131 rue Mouffetard","cp":"75005","city":"PARIS","arr":5,"phone":"01 47 07 18 15","member":true},{"id":25,"name":"FROMAGERIE SAINT CHARLES SIEGE","street":"133 rue Saint Charles","cp":"75015","city":"PARIS","arr":15,"phone":null,"member":true},{"id":26,"name":"ANDROUET AFFIMOUFF","street":"134 rue Mouffetard","cp":"75005","city":"PARIS","arr":5,"phone":"01 45 87 85 05","member":true},{"id":27,"name":"AU COEUR DU MARCHE","street":"138 rue de la Roquette","cp":"75011","city":"PARIS","arr":11,"phone":null,"member":false},{"id":28,"name":"LA FROMAGERIE GONCOURT JONQUIERE","street":"14 rue de la Jonquière","cp":"75017","city":"PARIS","arr":17,"phone":"09 73 88 21 58","member":true},{"id":29,"name":"LA BOUTIQUE GOURMANDE","street":"14 rue de l'Amiral Mouchez","cp":"75014","city":"PARIS","arr":14,"phone":"01 53 80 00 69","member":false},{"id":30,"name":"FROMAGERIE SAINT CHARLES","street":"140 rue de Belleville","cp":"75020","city":"PARIS","arr":20,"phone":"01 46 36 90 81","member":true},{"id":31,"name":"FROMAGERIE A LA MOTTE","street":"15 avenue d'Eylau","cp":"75016","city":"PARIS","arr":16,"phone":"05 55 11 96 18","member":false},{"id":32,"name":"FROMAGERIE L'ALPAGE PARIS","street":"15 rue d'Aligre","cp":"75012","city":"PARIS","arr":12,"phone":null,"member":false},{"id":33,"name":"LA MAISON DE LA MOZZARELLA","street":"15 rue Violet","cp":"75015","city":"PARIS","arr":15,"phone":"09 82 53 42 58","member":false},{"id":34,"name":"PAISANO","street":"159 rue Saint-Maur","cp":"75011","city":"PARIS","arr":11,"phone":"09 51 56 19 68","member":false},{"id":35,"name":"L UNIVERS DU FROMAGE","street":"16 rue Chanzy","cp":"75011","city":"PARIS","arr":11,"phone":"09 81 85 51 76","member":true},{"id":36,"name":"FROMAGERIE SADIKI MAHFOUD","street":"16 rue de Meaux","cp":"75019","city":"PARIS","arr":19,"phone":"01 42 39 02 67","member":false},{"id":37,"name":"LES INSEPARABLES SOCIETE L.D.T.F","street":"16 rue Saint Ferdinand","cp":"75017","city":"PARIS","arr":17,"phone":null,"member":false},{"id":38,"name":"GENTY GASTRONOMIE","street":"169 bd Vincent Auriol","cp":"75013","city":"PARIS","arr":13,"phone":"01 45 85 29 45","member":false},{"id":39,"name":"LA FERME D'AVRON","street":"17 rue d'Avron","cp":"75020","city":"PARIS","arr":20,"phone":"143730657","member":true},{"id":40,"name":"ANDROUET AFFIBELLES","street":"17 rue des Belles Feuilles","cp":"75016","city":"PARIS","arr":16,"phone":"01 45 05 11 77","member":true},{"id":41,"name":"AUX FROMAGES DE NATION","street":"176 boulevard de Charonne","cp":"75020","city":"PARIS","arr":20,"phone":"618903557","member":true},{"id":42,"name":"500 PARIS LECOURBE","street":"18 rue Lecourbe","cp":"75015","city":"PARIS","arr":15,"phone":null,"member":false},{"id":43,"name":"FROMAGERIE SAINT CHARLES","street":"19 rue Alphonse Daudet","cp":"75014","city":"PARIS","arr":14,"phone":null,"member":true},{"id":44,"name":"LA FERME D'ALEXANDRE","street":"19 rue Saint Placide","cp":"75006","city":"PARIS","arr":6,"phone":"01 43 35 84 36","member":false},{"id":45,"name":"FROMAGERIE DU PANTHEON","street":"198 rue Saint Jacques","cp":"75005","city":"PARIS","arr":5,"phone":"01 43 54 68 32","member":false},{"id":46,"name":"FROMAGERIE LAURENT DUBOIS (DUPLEIX)","street":"2 rue de Lourmel","cp":"75015","city":"PARIS","arr":15,"phone":"01 45 78 70 58","member":true},{"id":47,"name":"CASALOPEZ","street":"2 rue du Rendez-Vous","cp":"75012","city":"PARIS","arr":12,"phone":"01 44 87 95 69","member":false},{"id":48,"name":"LOU BIARNES","street":"2 rue du Rhin","cp":"75019","city":"PARIS","arr":19,"phone":"617164244","member":false},{"id":49,"name":"FROMAGES ET DETAIL","street":"20 rue Lepic","cp":"75018","city":"PARIS","arr":18,"phone":"01 46 06 90 97","member":true},{"id":50,"name":"LA FROMAGERIE DE GRENELLE","street":"204 rue de Grenelle","cp":"75007","city":"PARIS","arr":7,"phone":"01 45 51 57 59","member":true},{"id":51,"name":"FROMAGERIE FERNIN","street":"204 rue du Faubourg Saint Martin","cp":"75010","city":"PARIS","arr":10,"phone":"09 88 01 74 49","member":true},{"id":52,"name":"LA FERME DUVERNET","street":"21 rue Mouton Duvernet","cp":"75014","city":"PARIS","arr":14,"phone":"06 08 27 91 13","member":false},{"id":53,"name":"FROMAGES ET DETAIL","street":"212 rue de la Convention","cp":"75015","city":"PARIS","arr":15,"phone":"01 47 34 76 25","member":true},{"id":54,"name":"FROMAGERIE SAINT CHARLES","street":"213 bis Avenue de Versailles","cp":"75016","city":"PARIS","arr":16,"phone":"01 46 51 28 13","member":true},{"id":55,"name":"FRANCOIS PRIET FROMAGER","street":"214 rue des Pyrenées","cp":"75020","city":"PARIS","arr":20,"phone":"01 46 36 88 90","member":false},{"id":56,"name":"FROMAGERIE SAINT CHARLES","street":"215 rue du Faubourg Saint Martin","cp":"75010","city":"PARIS","arr":10,"phone":"01 42 05 58 89","member":true},{"id":57,"name":"TERROIR ET NATURE","street":"22 rue de Douai","cp":"75009","city":"PARIS","arr":9,"phone":"01 53 31 09 73","member":false},{"id":58,"name":"FROMAGES ET RAMAGE","street":"22 rue Ramey","cp":"75018","city":"PARIS","arr":18,"phone":"01 42 23 42 59","member":false},{"id":59,"name":"CAUSSES","street":"222 rue Saint Martin","cp":"75003","city":"PARIS","arr":3,"phone":"01 42 71 33 33","member":false},{"id":60,"name":"LA FERME DU HAMEAU","street":"223 rue de la Croix Nivert","cp":"75015","city":"PARIS","arr":15,"phone":null,"member":false},{"id":61,"name":"LA FROMAGERIE DE PARIS","street":"229 rue de Charenton","cp":"75012","city":"PARIS","arr":12,"phone":"01 46 28 10 21","member":false},{"id":62,"name":"FROMAGERIE GRIFFON","street":"23 bis avenue de la Motte Picquet","cp":"75007","city":"PARIS","arr":7,"phone":"01 45 50 14 85","member":true},{"id":63,"name":"ANDROUET AFFITERR","street":"23 rue de la Terrasse","cp":"75017","city":"PARIS","arr":17,"phone":"01 47 64 39 20","member":true},{"id":64,"name":"FROMAGERIE NANINA","street":"24 bis rue Basfroi","cp":"75011","city":"PARIS","arr":11,"phone":null,"member":false},{"id":65,"name":"CREMERIE TROCADERO","street":"24 rue de Lubeck","cp":"75016","city":"PARIS","arr":16,"phone":"01 47 27 12 48","member":false},{"id":66,"name":"FROMAGERIE DES 5","street":"25 rue Geoffroy St Hilaire","cp":"75005","city":"PARIS","arr":5,"phone":"01 47 07 20 18","member":false},{"id":67,"name":"LES FROMAGES DE GAMBETTA","street":"259 rue des Pyrenées","cp":"75020","city":"PARIS","arr":20,"phone":"06 09 76 21 22","member":false},{"id":68,"name":"FROMAGERIE QUATREHOMME RUE DES MARTYRS","street":"26 rue des Martyrs","cp":"75009","city":"PARIS","arr":9,"phone":null,"member":true},{"id":69,"name":"FROMAGERIE SECRETAN","street":"27 Avenue Secrétan","cp":"75019","city":"PARIS","arr":19,"phone":null,"member":false},{"id":70,"name":"FROMAGERIE ACDM","street":"28 rue d'Aligre","cp":"75012","city":"PARIS","arr":12,"phone":"01 43 51 50 64","member":false},{"id":71,"name":"JULHES PARIS","street":"28 rue du Faubourg Poissonnière","cp":"75010","city":"PARIS","arr":10,"phone":null,"member":false},{"id":72,"name":"LA FROMAGERIE LOSSERAND","street":"29 rue Raymond Losserand","cp":"75014","city":"PARIS","arr":14,"phone":null,"member":false},{"id":73,"name":"FROMAGERIE CHATAIGNER","street":"3 rue des Martyrs","cp":"75009","city":"PARIS","arr":9,"phone":"01 48 78 23 60","member":true},{"id":74,"name":"FROMAGERIE RIONDET","street":"3 rue du Capitaine Ferber","cp":"75020","city":"PARIS","arr":20,"phone":null,"member":false},{"id":75,"name":"FROMAGES ET RAMAGE","street":"3 rue Eugene Jumin","cp":"75019","city":"PARIS","arr":19,"phone":null,"member":false},{"id":76,"name":"FROMAGERIE DES BUTTES CHAUMONT","street":"30 avenue Simon Bolivar","cp":"75019","city":"PARIS","arr":19,"phone":"09 86 11 86 99","member":false},{"id":77,"name":"CHEESE OF THE WORLD","street":"30 boulevard Saint Germain","cp":"75005","city":"PARIS","arr":5,"phone":null,"member":false},{"id":78,"name":"SAISONS FROMAGERIE","street":"30 rue du Grenier Saint Lazare","cp":"75003","city":"PARIS","arr":3,"phone":"181294752","member":true},{"id":79,"name":"2F FROMAGES","street":"31 avenue Felix Faure","cp":"75015","city":"PARIS","arr":15,"phone":"987562092","member":true},{"id":80,"name":"FROMAGES ET DETAIL","street":"31 rue Clerc","cp":"75007","city":"PARIS","arr":7,"phone":"01 47 05 48 95","member":true},{"id":81,"name":"JULHES PARIS","street":"31 rue St Maur","cp":"75011","city":"PARIS","arr":11,"phone":"01 44 83 96 30","member":false},{"id":82,"name":"FROMAGERIE LA QUATRIEME","street":"32 rue de l'Esperance","cp":"75013","city":"PARIS","arr":13,"phone":"06 58 07 68 60","member":true},{"id":83,"name":"LA BUTTE FROMAGERE","street":"32 rue des Abbesses","cp":"75018","city":"PARIS","arr":18,"phone":"142529627","member":false},{"id":84,"name":"LA PETITE FERME D'INES","street":"33 bis Rue Charlot","cp":"75020","city":"PARIS","arr":20,"phone":null,"member":false},{"id":85,"name":"FROMAGER LILLO","street":"35 rue des Belles Feuilles","cp":"75016","city":"PARIS","arr":16,"phone":"01 47 27 69 08","member":false},{"id":86,"name":"LA FERME SAINT HUBERT","street":"36 rue Marguerite de Rochechouart","cp":"75009","city":"PARIS","arr":9,"phone":"01 45 53 15 77","member":false},{"id":87,"name":"FROMAGERIE PERGOLESE","street":"36 rue Pergolèse","cp":"75016","city":"PARIS","arr":16,"phone":null,"member":false},{"id":88,"name":"L'AMIE PAULETTE","street":"37 rue Bobillot","cp":"75013","city":"PARIS","arr":13,"phone":"01 45 81 14 06","member":false},{"id":89,"name":"ANDROUET AFFIVERN","street":"37 rue de Verneuil","cp":"75007","city":"PARIS","arr":7,"phone":"01 42 61 97 55","member":true},{"id":90,"name":"MONBLEU FROMAGERIE","street":"37 rue du Faubourg Montmartre","cp":"75009","city":"PARIS","arr":9,"phone":"01 45 89 23 96","member":false},{"id":91,"name":"TRUFFESFOLIES","street":"37 rue MALAR","cp":"75007","city":"PARIS","arr":7,"phone":null,"member":false},{"id":92,"name":"PAROLES DE FROMAGERS","street":"37 rue Saint-Louis en l'Île","cp":"75004","city":"PARIS","arr":4,"phone":null,"member":false},{"id":93,"name":"LA GRANDE EPICERIE DE PARIS","street":"38 rue de SEVRES","cp":"75007","city":"PARIS","arr":7,"phone":null,"member":false},{"id":94,"name":"FROMAGERIE PIERRE ALEXANDRE","street":"38 rue de Varenne","cp":"75007","city":"PARIS","arr":7,"phone":null,"member":false},{"id":95,"name":"38 SAINT LOUIS","street":"38 rue Saint Louis en l'Ile","cp":"75004","city":"PARIS","arr":4,"phone":"01 46 33 30 00","member":false},{"id":96,"name":"FROMAGERIE JOUANNAULT","street":"39 rue de Bretagne","cp":"75003","city":"PARIS","arr":3,"phone":"01 42 78 52 61","member":false},{"id":97,"name":"LA FERME DE PASSY","street":"39 rue de l'Annonciation","cp":"75016","city":"PARIS","arr":16,"phone":"01 42 88 14 93","member":false},{"id":98,"name":"FROMAGERIE DU RENDEZ-VOUS","street":"4 rue du Rendez-vous","cp":"75012","city":"PARIS","arr":12,"phone":"01 40 21 90 19","member":true},{"id":99,"name":"FROMAGERIE SANDERS","street":"4 rue Lobineau","cp":"75006","city":"PARIS","arr":6,"phone":"06 11 35 82 80","member":false},{"id":100,"name":"LA CREMERIE CAMELIAS","street":"41 rue de Lancry","cp":"75010","city":"PARIS","arr":10,"phone":null,"member":false},{"id":101,"name":"CREMERIE FRESCOLET","street":"42 rue Pigalle","cp":"75009","city":"PARIS","arr":9,"phone":"09 82 32 71 17","member":false},{"id":102,"name":"FROMAGES ET DETAIL","street":"43 rue de Levis","cp":"75017","city":"PARIS","arr":17,"phone":"01 47 63 61 44","member":true},{"id":103,"name":"LA FROMAGERIE DU MOULIN","street":"45 rue du Moulin de la Pointe","cp":"75013","city":"PARIS","arr":13,"phone":"01 45 89 39 91","member":false},{"id":104,"name":"FROMAGERIE CAULAINCOURT","street":"47 rue Caulaincourt","cp":"75018","city":"PARIS","arr":18,"phone":"01 42 52 79 02","member":true},{"id":105,"name":"LES MOINES DU 17 EME","street":"47 rue des Moines","cp":"75017","city":"PARIS","arr":17,"phone":"01 46 27 69 24","member":false},{"id":106,"name":"FROMAGERIE HISADA","street":"47 rue Richelieu","cp":"75001","city":"PARIS","arr":1,"phone":"01 42 60 78 48","member":true},{"id":107,"name":"DUBOIS GOURMET-FROMAGERIE LAURENT DUBOIS","street":"47 ter Boulevard St Germain","cp":"75005","city":"PARIS","arr":5,"phone":"01 43 54 50 93","member":true},{"id":108,"name":"FROMAGERIE MOZART","street":"48 bis rue Mozart","cp":"75016","city":"PARIS","arr":16,"phone":"01 42 88 24 56","member":true},{"id":109,"name":"FROMAGERIE SAINT CHARLES","street":"48 rue des Martyrs","cp":"75009","city":"PARIS","arr":9,"phone":"01 45 26 84 88","member":true},{"id":110,"name":"SARL VACROUX","street":"5 rue Daguerre","cp":"75014","city":"PARIS","arr":14,"phone":"01 43 22 09 04","member":false},{"id":111,"name":"LA SOURIS GOURMANDE","street":"5 rue des Martyrs","cp":"75009","city":"PARIS","arr":9,"phone":"01 42 85 43 56","member":false},{"id":112,"name":"TERROIRS D'AVENIR","street":"5 rue Paul Bert","cp":"75011","city":"PARIS","arr":11,"phone":"01 84 79 88 27","member":false},{"id":113,"name":"RATAFIA","street":"5 rue SAINT BERNARD","cp":"75011","city":"PARIS","arr":11,"phone":null,"member":false},{"id":114,"name":"FROMAGERIE DU BAS MONTMARTRE","street":"5 rue Versigny","cp":"75018","city":"PARIS","arr":18,"phone":"06 32 00 14 72","member":true},{"id":115,"name":"NICOLE BARTHELEMY FROMAGER","street":"51 rue de Grenelle","cp":"75007","city":"PARIS","arr":7,"phone":"01 45 48 56 75","member":false},{"id":116,"name":"LA FROMAGERIE LASNIER","street":"51 rue de Tolbiac","cp":"75013","city":"PARIS","arr":13,"phone":null,"member":false},{"id":117,"name":"CAUSSES","street":"52 rue de la Rochefoucault","cp":"75009","city":"PARIS","arr":9,"phone":"01 53 16 10 10","member":false},{"id":118,"name":"LA TABLE DE MAITRE CORBEAU","street":"52 rue St Didier","cp":"75016","city":"PARIS","arr":16,"phone":"01 43 32 03 35","member":false},{"id":119,"name":"CHEZ VIRGINIE","street":"54 rue Damrémont","cp":"75018","city":"PARIS","arr":18,"phone":"01 46 06 76 54","member":true},{"id":120,"name":"LA FROMAGERIE DU LOUVRE","street":"54 rue de l'arbre sec","cp":"75001","city":"PARIS","arr":1,"phone":"09 73 89 60 23","member":false},{"id":121,"name":"FROMAGES ET DETAIL","street":"54/60 rue du Faubourg Saint Denis","cp":"75010","city":"PARIS","arr":10,"phone":"01 41 80 28 60","member":false},{"id":122,"name":"JULHES PARIS SAS","street":"54/60 rue du Faubourg Saint Denis","cp":"75010","city":"PARIS","arr":10,"phone":"01 44 83 96 30","member":false},{"id":123,"name":"FLEUR DE LAIT","street":"57 rue de Bretagne","cp":"75003","city":"PARIS","arr":3,"phone":null,"member":false},{"id":124,"name":"DUBOIS AUTEUIL","street":"58 rue d'Auteuil","cp":"75016","city":"PARIS","arr":16,"phone":"01 45 25 07 10","member":true},{"id":125,"name":"JULHES PARIS","street":"59 rue du Faubourg St Martin","cp":"75010","city":"PARIS","arr":10,"phone":null,"member":false},{"id":126,"name":"FROMAGERIE CHARLICOT","street":"6 rue de la Folie Méricourt","cp":"75011","city":"PARIS","arr":11,"phone":"01 58 30 96 32","member":true},{"id":127,"name":"CREME","street":"6 rue Julien Lacroix","cp":"75020","city":"PARIS","arr":20,"phone":null,"member":false},{"id":128,"name":"TERROIR & TRADITION SASU","street":"60 rue du Faubourg Saint Martin","cp":"75010","city":"PARIS","arr":10,"phone":null,"member":false},{"id":129,"name":"LA FERME DES ARENES","street":"60 rue Monge","cp":"75005","city":"PARIS","arr":5,"phone":"01 43 36 07 08","member":false},{"id":130,"name":"FROMAGERIE OBERKAMPF CHEZ L'AUVERGNAT","street":"60 rue Oberkampf","cp":"75011","city":"PARIS","arr":11,"phone":"01 48 05 31 83","member":true},{"id":131,"name":"TAKA ET VERMO","street":"61 bis rue du Faubourg Saint-Denis","cp":"75010","city":"PARIS","arr":10,"phone":"01 48 24 89 29","member":true},{"id":132,"name":"QUATREHOMME SAS","street":"62 rue de Sèvres","cp":"75007","city":"PARIS","arr":7,"phone":"01 47 34 33 45","member":true},{"id":133,"name":"DUBOIS GM PARIS","street":"64 boulevard Haussmann","cp":"75009","city":"PARIS","arr":9,"phone":"01 42 82 40 05","member":false},{"id":134,"name":"AUX BONS FROMAGES","street":"64 rue de la Pompe","cp":"75016","city":"PARIS","arr":16,"phone":null,"member":false},{"id":135,"name":"THOMAS FROMAGER","street":"66 rue du Commerce","cp":"75015","city":"PARIS","arr":15,"phone":"01 45 31 26 57","member":false},{"id":136,"name":"AU PETIT FROMAGER","street":"69 rue Brancion","cp":"75015","city":"PARIS","arr":15,"phone":"01 45 30 94 76","member":false},{"id":137,"name":"FROMAGERIE SAINT CHARLES","street":"7 rue Bayen","cp":"75017","city":"PARIS","arr":17,"phone":null,"member":false},{"id":138,"name":"TERROIRS D'AVENIR","street":"7 rue du Nil","cp":"75002","city":"PARIS","arr":2,"phone":"01 85 09 84 39","member":true},{"id":139,"name":"FROMAGES ET DETAIL","street":"7 rue Poncelet","cp":"75017","city":"PARIS","arr":17,"phone":"01 42 27 83 74","member":true},{"id":140,"name":"FROMAGERIE BLANCHE","street":"70 rue Blanche","cp":"75009","city":"PARIS","arr":9,"phone":null,"member":false},{"id":141,"name":"FROMAGES ET DETAIL","street":"71 Avenue du Général Leclerc","cp":"75014","city":"PARIS","arr":14,"phone":"01 43 27 93 30","member":true},{"id":142,"name":"LAITERIE GILBERT PARIS NATION","street":"72 rue de Montreuil","cp":"75011","city":"PARIS","arr":11,"phone":null,"member":false},{"id":143,"name":"LAITERIE LA CHAPELLE","street":"72 rue Philippe de Girard","cp":"75018","city":"PARIS","arr":18,"phone":"171275291","member":true},{"id":144,"name":"FROMAGERIE SAINT CHARLES","street":"73 Avenue du Général Bizot","cp":"75012","city":"PARIS","arr":12,"phone":"01 43 44 08 85","member":true},{"id":145,"name":"LA LAITERIE DE PARIS","street":"74 rue des poissonniers","cp":"75018","city":"PARIS","arr":18,"phone":"01 42 59 44 64","member":false},{"id":146,"name":"FROMAGERIE LA FONTAINE","street":"75 rue Jean de la Fontaine","cp":"75016","city":"PARIS","arr":16,"phone":"01 42 88 07 55","member":false},{"id":147,"name":"LA FERME SAINT AUBIN","street":"76 rue Saint Louis en l'Ile","cp":"75004","city":"PARIS","arr":4,"phone":"01 43 54 74 54","member":false},{"id":148,"name":"FROMAGERIE SAINT CHARLES","street":"77 rue Saint Antoine","cp":"75004","city":"PARIS","arr":4,"phone":"01 42 78 48 78","member":true},{"id":149,"name":"FROMAGES ET DETAIL","street":"79 rue de Courcelles","cp":"75017","city":"PARIS","arr":17,"phone":"01 43 80 36 42","member":true},{"id":150,"name":"FROMAGERIE SAINT CHARLES","street":"8 bis rue Lebon","cp":"75017","city":"PARIS","arr":17,"phone":"01 45 72 12 34","member":true},{"id":151,"name":"CREMERIE DELACOUR EVCV","street":"8 rue Corvetto","cp":"75008","city":"PARIS","arr":8,"phone":"01 45 63 45 17","member":false},{"id":152,"name":"FROMAGERIE SAINT CHARLES","street":"8 rue Delambre","cp":"75014","city":"PARIS","arr":14,"phone":"01 42 79 00 40","member":true},{"id":153,"name":"FROMAGES ET DETAIL","street":"8 rue des Petits Carreaux","cp":"75002","city":"PARIS","arr":2,"phone":"01 42 33 04 07","member":true},{"id":154,"name":"TERROIRS D'AVENIR","street":"8 rue du NIl","cp":"75002","city":"PARIS","arr":2,"phone":null,"member":false},{"id":155,"name":"FROMAGERIE MARTINE DUBOIS","street":"80 rue de Tocqueville","cp":"75017","city":"PARIS","arr":17,"phone":"01 42 27 11 38","member":true},{"id":156,"name":"FROMAGERIE CHAMBI","street":"81 avenue de Saint Ouen","cp":"75017","city":"PARIS","arr":17,"phone":"01 46 27 34 20","member":false},{"id":157,"name":"FROMAGES ET DETAIL","street":"83 rue Lecourbe","cp":"75015","city":"PARIS","arr":15,"phone":"01 47 83 42 74","member":true},{"id":158,"name":"TERROIRS D'AVENIR","street":"84 rue de la Folie Méricourt","cp":"75011","city":"PARIS","arr":11,"phone":"01 85 09 84 00","member":false},{"id":159,"name":"FERME SAINT QUENTIN","street":"85 bis, boulevard Magenta","cp":"75010","city":"PARIS","arr":10,"phone":"01 45 23 25 64","member":false},{"id":160,"name":"LA FERMETTE DE MONTORGUEIL","street":"86 rue Montorgueil","cp":"75002","city":"PARIS","arr":2,"phone":"01 42 36 70 96","member":false},{"id":161,"name":"FROMAGERIE SAINT CHARLES","street":"86 rue Raymond Losserand","cp":"75014","city":"PARIS","arr":14,"phone":"01 45 42 90 68","member":true},{"id":162,"name":"LA COOP","street":"9 rue Corneille","cp":"75006","city":"PARIS","arr":6,"phone":"01 43 29 91 07","member":false},{"id":163,"name":"FROMAGERIE DE MONTMARTRE","street":"9 rue du Poteau","cp":"75018","city":"PARIS","arr":18,"phone":"01 46 06 26 03","member":false},{"id":164,"name":"FROMAGERIE FRANGINS","street":"9 rue Jean Pierre Timbaud","cp":"75007","city":"PARIS","arr":7,"phone":null,"member":false},{"id":165,"name":"ANDROUET AFFICAM","street":"93 rue Cambronne","cp":"75015","city":"PARIS","arr":15,"phone":"01 47 83 32 05","member":true},{"id":166,"name":"FROMAGES ET DETAIL","street":"94 rue du Commerce","cp":"75015","city":"PARIS","arr":15,"phone":"01 55 76 69 33","member":true},{"id":167,"name":"LE BON GOUT FERMIER","street":"96 rue Lemercier","cp":"75017","city":"PARIS","arr":17,"phone":"06 08 63 34 62","member":false},{"id":168,"name":"FORMATICUS","street":"97 rue Nollet","cp":"75017","city":"PARIS","arr":17,"phone":"03 86 97 83 97","member":false},{"id":169,"name":"CASEUS SAINT PAUL","street":"97-99 rue St Antoine","cp":"75004","city":"PARIS","arr":4,"phone":"06 14 02 55 38","member":true},{"id":170,"name":"LYRE","street":"98 rue des Dames","cp":"75017","city":"PARIS","arr":17,"phone":"06 15 35 11 74","member":false},{"id":171,"name":"LES FROMAGES DES BATIGNOLLES","street":"Maché des Batignolles","cp":"75017","city":"PARIS","arr":17,"phone":"01 58 59 17 49","member":false},{"id":172,"name":"CYRILLE HARDOUIN","street":"MARCHE COUVERT BEAUVAU place d'Aligre","cp":"75012","city":"PARIS","arr":12,"phone":"01 43 45 35 09","member":false},{"id":173,"name":"FROMAGERIE ANNIE ET GILLES QUIECOUT","street":"Marché de St Quentin","cp":"75010","city":"PARIS","arr":10,"phone":"01 42 46 78 22","member":false},{"id":174,"name":"FROMAGER GAUTIER","street":"MCH de Saint-Quentin","cp":"75010","city":"PARIS","arr":10,"phone":"01 42 46 78 22","member":true},{"id":175,"name":"FROMAGERIE DIDOT","street":"108 rue didot","cp":"75014","city":"PARIS","arr":14,"phone":null,"member":false},{"id":176,"name":"LA KAVE DU FROMAGER","street":"221 boulevard voltaire","cp":"75011","city":"PARIS","arr":11,"phone":null,"member":false},{"id":177,"name":"CADM","street":"114 RUE RAYMOND LOSSERAND","cp":"75014","city":"PARIS","arr":14,"phone":null,"member":false},{"id":178,"name":"G.A BRUNE","street":"1 AVENUE DE LA PORTE DE MONTROUGE","cp":"75014","city":"PARIS","arr":14,"phone":null,"member":false},{"id":179,"name":"LA MELODIE DES FROMAGES","street":"4 rue bellart","cp":"75015","city":"PARIS","arr":15,"phone":null,"member":false},{"id":180,"name":"LES FROMAGES DE MARIE","street":"116 RUE SAINT CHARLES","cp":"75015","city":"PARIS","arr":15,"phone":null,"member":false},{"id":181,"name":"CARACTERES","street":"17 RUE LE MAROIS","cp":"75016","city":"PARIS","arr":16,"phone":null,"member":false},{"id":182,"name":"Fromaticus","street":"16 RUE BROCHANT","cp":"75017","city":"PARIS","arr":17,"phone":null,"member":false},{"id":183,"name":"LE CALENDOS (MCRR)","street":"11 Rue Pierre Demours","cp":"75017","city":"PARIS","arr":17,"phone":null,"member":false},{"id":184,"name":"LA FERME DE PEPONE","street":"94 AV SAINT OUEN","cp":"75018","city":"PARIS","arr":18,"phone":null,"member":false},{"id":185,"name":"FROMAGERIE ANCELOT","street":"119 AVENUE GAMBETTA","cp":"75020","city":"PARIS","arr":20,"phone":null,"member":false},{"id":186,"name":"FROMAGERIE ROLAND ROUSSELET AFFINEUR","street":"105 RUE MOUFFETARD","cp":"75005","city":"PARIS","arr":5,"phone":null,"member":false},{"id":187,"name":"FROMAGERIE FERDINAND","street":"42 RUE DUNKERQUE","cp":"75009","city":"PARIS","arr":9,"phone":"01 89 46 08 59","member":false},{"id":188,"name":"FROMAGERIE DE COURCELLES","street":"160 boulevard Berthier","cp":"75017","city":"PARIS","arr":17,"phone":"01 43 80 14 31","member":false},{"id":189,"name":"CREMERIE DES BATIGNOLLES","street":"39 rue des Batignolles","cp":"75017","city":"PARIS","arr":17,"phone":"0671753404","member":true}];
+const CACHE_KEY = 'cremiers_paris_geocache_v1';
+const CACHE_VERSION = 'v1';
+
+/* ================== UTILS ================== */
+function hashShops(shops) {
+  // Hash simple pour détecter si la liste a changé
+  let str = shops.map(s => s.street + '|' + s.cp).join('#');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash.toString(36);
+}
+
+function loadCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data.version !== CACHE_VERSION) return null;
+    if (data.hash !== hashShops(SHOPS)) return null;
+    return data.results;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveCache(results) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({
+      version: CACHE_VERSION,
+      hash: hashShops(SHOPS),
+      timestamp: Date.now(),
+      results: results,
+    }));
+  } catch (e) {
+    console.warn('Cache sauvegarde impossible:', e);
+  }
+}
+
+/* ================== GÉOCODAGE ================== */
+function buildCSV(shops) {
+  const lines = ['id,adresse,code_postal,ville'];
+  for (const s of shops) {
+    // Échapper les guillemets et virgules
+    const esc = v => {
+      const str = String(v || '').replace(/"/g, '""');
+      return /[",\n]/.test(str) ? `"${str}"` : str;
+    };
+    lines.push([s.id, esc(s.street), esc(s.cp), esc(s.city)].join(','));
+  }
+  return lines.join('\n');
+}
+
+async function geocodeBatch(shops, progressCb) {
+  const csvContent = buildCSV(shops);
+  const formData = new FormData();
+  formData.append('data', new Blob([csvContent], { type: 'text/csv' }), 'addresses.csv');
+  formData.append('columns', 'adresse');
+  formData.append('columns', 'code_postal');
+  formData.append('columns', 'ville');
+  formData.append('postcode', 'code_postal');
+
+  progressCb(10, 'Envoi des 188 adresses au service officiel…');
+
+  // Timeout de 45 secondes
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+  let response;
+  try {
+    response = await fetch('https://api-adresse.data.gouv.fr/search/csv/', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error("Délai dépassé (45s). L'API BAN ne répond pas ou est bloquée par votre navigateur/environnement. Essayez d'ouvrir ce fichier directement dans votre navigateur (et non dans un aperçu intégré).");
+    }
+    throw new Error("Impossible de contacter l'API BAN. Cause probable : appel réseau bloqué par l'environnement d'affichage. Détail : " + err.message);
+  }
+  clearTimeout(timeoutId);
+
+  if (!response.ok) {
+    throw new Error('Le service de géocodage a répondu avec le statut ' + response.status);
+  }
+
+  progressCb(60, 'Analyse des résultats…');
+
+  const text = await response.text();
+  const rows = parseCSV(text);
+
+  progressCb(90, 'Placement des marqueurs sur la carte…');
+
+  // Mapper id -> résultat
+  const byId = {};
+  for (const row of rows) {
+    const id = parseInt(row.id, 10);
+    if (isNaN(id)) continue;
+    const lat = parseFloat(row.latitude);
+    const lon = parseFloat(row.longitude);
+    if (isFinite(lat) && isFinite(lon)) {
+      byId[id] = {
+        lat, lon,
+        score: parseFloat(row.result_score) || 0,
+        type: row.result_type || '',
+        label: row.result_label || '',
+      };
+    }
+  }
+  return byId;
+}
+
+function parseCSV(text) {
+  // Parser CSV simple qui gère les guillemets
+  const rows = [];
+  const lines = text.split(/\r?\n/);
+  if (!lines.length) return rows;
+
+  const parseLine = (line) => {
+    const out = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (line[i + 1] === '"') { cur += '"'; i++; }
+          else { inQuotes = false; }
+        } else cur += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ',') { out.push(cur); cur = ''; }
+        else cur += c;
+      }
+    }
+    out.push(cur);
+    return out;
+  };
+
+  const headers = parseLine(lines[0]);
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = parseLine(lines[i]);
+    const row = {};
+    headers.forEach((h, j) => { row[h] = vals[j] || ''; });
+    rows.push(row);
+  }
+  return rows;
+}
+
+/* ================== CARTE ================== */
+let map, markerCluster, markersById = {}, shopsWithCoords = [];
+let currentHighlight = null;
+let allShopsMap = {};
+
+function initMap() {
+  map = L.map('map', {
+    center: [48.8566, 2.3522],
+    zoom: 12,
+    zoomControl: true,
+    preferCanvas: false,
+  });
+
+  // Fond de carte clair et lisible
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(map);
+
+  markerCluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    maxClusterRadius: 45,
+    disableClusteringAtZoom: 17,
+  });
+  map.addLayer(markerCluster);
+}
+
+function makeIcon(highlighted = false, member = false) {
+  const cls = ['shop-marker', highlighted ? 'highlighted' : '', member ? 'member' : ''].filter(Boolean).join(' ');
+  const size = highlighted ? 18 : 14;
+  return L.divIcon({
+    className: '',
+    html: `<div class="${cls}"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2],
+  });
+}
+
+function renderMarkers(shops, geocodes) {
+  markerCluster.clearLayers();
+  markersById = {};
+  shopsWithCoords = [];
+
+  for (const shop of shops) {
+    const g = geocodes[shop.id];
+    if (!g) continue;
+
+    shopsWithCoords.push({ ...shop, lat: g.lat, lon: g.lon, score: g.score });
+
+    const marker = L.marker([g.lat, g.lon], { icon: makeIcon(false, !!shop.member) });
+    const popupHtml = `
+      <div class="popup-name">${escapeHtml(shop.name)}${shop.member ? ' <span style="font-size:11px;background:#e8f5ec;color:#1a6b32;border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px;">✓ Adhérent</span>' : ''}</div>
+      <div class="popup-line">${escapeHtml(shop.street)}</div>
+      <div class="popup-line">${escapeHtml(shop.cp)} ${escapeHtml(shop.city)}${shop.arr ? ' — ' + shop.arr + '<sup>e</sup>' : ''}</div>
+      ${shop.phone ? `<div class="popup-tel">📞 <a href="tel:${escapeHtml(shop.phone)}">${escapeHtml(formatPhone(shop.phone))}</a></div>` : ''}
+    `;
+    marker.bindPopup(popupHtml, { maxWidth: 300, closeButton: true });
+    marker.on('click', () => highlightShop(shop.id, false));
+
+    markersById[shop.id] = marker;
+    markerCluster.addLayer(marker);
+  }
+
+  // Ajuster les bornes sur Paris intramuros si on a des marqueurs
+  if (shopsWithCoords.length > 0) {
+    const bounds = L.latLngBounds(shopsWithCoords.map(s => [s.lat, s.lon]));
+    map.fitBounds(bounds, { padding: [30, 30] });
+  }
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatPhone(p) {
+  if (!p) return '';
+  const digits = String(p).replace(/\D/g, '');
+  // Format français 10 chiffres : 01 23 45 67 89
+  if (digits.length === 9) {
+    // 9 chiffres : probablement sans le 0 initial
+    const padded = '0' + digits;
+    return padded.match(/.{1,2}/g).join(' ');
+  }
+  if (digits.length === 10) {
+    return digits.match(/.{1,2}/g).join(' ');
+  }
+  return p;
+}
+
+function highlightShop(id, zoom = true) {
+  // Enlever le highlight précédent
+  if (currentHighlight !== null && markersById[currentHighlight]) {
+    { const s = allShopsMap[currentHighlight]; markersById[currentHighlight].setIcon(makeIcon(false, s && !!s.member)); }
+  }
+  currentHighlight = id;
+
+  const marker = markersById[id];
+  if (!marker) return;
+
+  { const s = allShopsMap[id]; marker.setIcon(makeIcon(true, s && !!s.member)); }
+
+  if (zoom) {
+    // Dézoomer le cluster si nécessaire
+    markerCluster.zoomToShowLayer(marker, () => {
+      marker.openPopup();
+    });
+  } else {
+    marker.openPopup();
+  }
+
+  // Highlight dans la liste
+  document.querySelectorAll('.shop-item').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.id, 10) === id);
+  });
+  const selected = document.querySelector(`.shop-item[data-id="${id}"]`);
+  if (selected) selected.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+/* ================== LISTE & FILTRES ================== */
+window.renderList = function renderList(shops, geocodes) {
+  const list = document.getElementById('shop-list');
+  const search = document.getElementById('search-input').value.trim().toLowerCase();
+  const arrFilter = document.getElementById('arr-filter').value;
+  const memberOnly = document.getElementById('member-toggle') && document.getElementById('member-toggle').checked;
+
+  // Update allShopsMap for icon refresh
+  allShopsMap = {};
+  shops.forEach(s => { allShopsMap[s.id] = s; });
+
+  // Update member count badge
+  const memberCount = shops.filter(s => s.member).length;
+  const mcEl = document.getElementById('member-count');
+  if (mcEl) mcEl.textContent = memberCount + ' ✓';
+
+  const filtered = shops.filter(s => {
+    if (memberOnly && !s.member) return false;
+    if (arrFilter !== 'all' && String(s.arr) !== arrFilter) return false;
+    if (!search) return true;
+    const hay = (s.name + ' ' + s.street).toLowerCase();
+    return hay.includes(search);
+  });
+
+  filtered.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
+  list.innerHTML = filtered.map(s => {
+    const geocoded = !!geocodes[s.id];
+    return `
+      <div class="shop-item ${geocoded ? 'geocoded' : 'failed'}" data-id="${s.id}">
+        <div class="name">
+          <span class="status-dot"></span>${escapeHtml(s.name)}
+          ${s.member ? '<span class="member-badge">⭐ Adhérent</span>' : ''}
+          ${s.arr ? `<span class="arr-tag">${s.arr}<sup>e</sup></span>` : ''}
+        </div>
+        <div class="address">${escapeHtml(s.street)}, ${escapeHtml(s.cp)}</div>
+      </div>
+    `;
+  }).join('');
+
+  const totalGeo = Object.keys(geocodes).length;
+  document.getElementById('count-badge').textContent =
+    `${filtered.length} affiché${filtered.length > 1 ? 's' : ''} sur ${shops.length} · ${totalGeo} localisé${totalGeo > 1 ? 's' : ''}`;
+
+  list.querySelectorAll('.shop-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = parseInt(el.dataset.id, 10);
+      if (geocodes[id]) highlightShop(id, true);
+    });
+  });
+
+  filterMarkers(filtered, geocodes);
+}
+
+function filterMarkers(filteredShops, geocodes) {
+  const visibleIds = new Set(filteredShops.map(s => s.id));
+  markerCluster.clearLayers();
+  for (const s of filteredShops) {
+    if (markersById[s.id]) {
+      markerCluster.addLayer(markersById[s.id]);
+    }
+  }
+}
+
+function populateArrFilter(shops) {
+  const select = document.getElementById('arr-filter');
+  const arrs = [...new Set(shops.map(s => s.arr).filter(a => a != null))].sort((a, b) => a - b);
+  for (const a of arrs) {
+    const opt = document.createElement('option');
+    opt.value = a;
+    opt.textContent = a + 'e arrondissement';
+    select.appendChild(opt);
+  }
+}
+
+/* ================== EXPORT ================== */
+function exportCSV(shops, geocodes) {
+  const rows = [['id', 'enseigne', 'adresse', 'code_postal', 'ville', 'arrondissement', 'telephone', 'latitude', 'longitude', 'score_geocodage']];
+  for (const s of shops) {
+    const g = geocodes[s.id] || {};
+    rows.push([
+      s.id,
+      s.name,
+      s.street,
+      s.cp,
+      s.city,
+      s.arr || '',
+      s.phone || '',
+      g.lat || '',
+      g.lon || '',
+      g.score || '',
+    ]);
+  }
+  const csv = rows.map(r => r.map(v => {
+    const str = String(v).replace(/"/g, '""');
+    return /[",\n]/.test(str) ? `"${str}"` : str;
+  }).join(',')).join('\n');
+
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cremiers_fromagers_paris_geocode.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ================== INIT ================== */
+async function main() {
+  const progressFill = document.getElementById('progress-fill');
+  const loadingText = document.getElementById('loading-text');
+  const loadingTitle = document.getElementById('loading-title');
+  const errorBox = document.getElementById('error-message');
+  const overlay = document.getElementById('loading-overlay');
+
+  const updateProgress = (pct, msg) => {
+    progressFill.style.width = pct + '%';
+    if (msg) loadingText.textContent = msg;
+  };
+
+  const showError = (title, detail) => {
+    loadingTitle.textContent = title;
+    errorBox.innerHTML = `<div class="error-box">${detail}</div>`;
+  };
+
+  // Feedback immédiat pour qu'on voie que le script s'exécute
+  updateProgress(2, 'Initialisation de la carte…');
+
+  // Vérifier que Leaflet est bien chargé
+  if (typeof L === 'undefined') {
+    showError('Erreur de chargement', `
+      La bibliothèque de carte Leaflet n'a pas pu être chargée depuis le CDN.<br><br>
+      <strong>Cause probable :</strong> vous visualisez ce fichier dans un aperçu intégré qui bloque les ressources externes (ex : aperçu Claude.ai, iframe sandboxée).<br><br>
+      <strong>Solution :</strong> téléchargez le fichier et ouvrez-le directement dans votre navigateur (Chrome, Safari, Firefox) par double-clic.
+    `);
+    return;
+  }
+
+  try {
+    initMap();
+  } catch (err) {
+    showError('Erreur d\'initialisation', 'Impossible d\'initialiser la carte : ' + escapeHtml(err.message));
+    return;
+  }
+
+  populateArrFilter(SHOPS);
+
+  let geocodes = loadCache();
+
+  if (geocodes) {
+    loadingTitle.textContent = 'Chargement depuis le cache';
+    updateProgress(100, 'Données déjà géocodées, chargement instantané.');
+  } else {
+    try {
+      updateProgress(5, 'Préparation des adresses…');
+      geocodes = await geocodeBatch(SHOPS, updateProgress);
+      saveCache(geocodes);
+      updateProgress(100, 'Géocodage terminé !');
+    } catch (err) {
+      console.error(err);
+      errorBox.innerHTML = `
+        <div class="error-box">
+          <strong>Impossible de géocoder les adresses.</strong><br>
+          ${escapeHtml(err.message)}<br><br>
+          Vérifiez votre connexion internet et rechargez la page. Le service de géocodage utilisé est l'API publique française BAN (adresse.data.gouv.fr).
+        </div>
+      `;
+      return;
+    }
+  }
+
+  // Exposer les geocodes au module admin AVANT renderList
+  // pour que buildAllShops() soit disponible dès le premier rendu
+  if (typeof window._adminSetGeocodes === 'function') window._adminSetGeocodes(geocodes);
+
+  // Fonction helper : toujours rendre avec les données enrichies (overrides + membres + customs)
+  function getAllShops() {
+    return typeof window._buildAllShops === 'function' ? window._buildAllShops() : SHOPS;
+  }
+
+  renderMarkers(getAllShops(), geocodes);
+  renderList(getAllShops(), geocodes);
+
+  // Masquer l'overlay avec une petite tempo pour la fluidité
+  setTimeout(() => overlay.classList.add('hidden'), 200);
+
+  // Refresh icônes adhérents après init complète du module admin
+  // (_buildAllShops est exposé par le script admin qui s'exécute après)
+  setTimeout(() => {
+    const allShops = getAllShops();
+    // Mettre à jour la couleur de tous les marqueurs selon statut adhérent
+    allShops.forEach(s => {
+      if (markersById[s.id]) {
+        markersById[s.id].setIcon(makeIcon(false, !!s.member));
+      }
+    });
+    // Mettre à jour la liste (badges adhérents)
+    renderList(allShops, geocodes);
+  }, 50);
+
+  // Événements filtres
+  document.getElementById('search-input').addEventListener('input', () => renderList(getAllShops(), geocodes));
+  document.getElementById('arr-filter').addEventListener('change', () => renderList(getAllShops(), geocodes));
+  document.getElementById('member-toggle').addEventListener('change', () => renderList(getAllShops(), geocodes));
+  document.getElementById('export-btn').addEventListener('click', () => exportCSV(getAllShops(), geocodes));
+}
+
+main();
+</script>
+
+<!-- ========== BOUTON ADMIN ========== -->
+<button class="admin-toggle-btn" id="admin-toggle-btn" title="Administration">⚙</button>
+
+<!-- ========== MODALE ADMIN ========== -->
+<div class="admin-overlay open" id="admin-overlay">
+  <div class="admin-modal">
+    <button class="admin-close" id="admin-close">✕</button>
+    <div class="admin-modal-header">
+      <h2>🧀 Gestion des établissements</h2>
+      <p>Gérez la base, les adhérents et les ajouts</p>
+    </div>
+
+    <!-- Auth -->
+    <div id="auth-section" class="admin-section" style="display: none;">
+      <div class="admin-section-title">Accès sécurisé</div>
+      <div class="auth-form">
+        <div><label class="admin-label">Mot de passe</label>
+          <input class="admin-input" type="password" id="admin-pwd" placeholder="Mot de passe…"></div>
+        <button class="admin-btn primary" id="admin-auth-btn" style="align-self:flex-start">Accéder →</button>
+        <div class="admin-msg" id="auth-msg"></div>
+      </div>
+    </div>
+
+    <!-- Contenu (après auth) -->
+    <div id="admin-content" style="display: block;">
+
+      <!-- Onglets -->
+      <div class="atab-bar">
+        <button class="atab-btn" data-tab="add">➕ Ajouter</button>
+        <button class="atab-btn" data-tab="db">📋 Base de données</button>
+        <button class="atab-btn active" data-tab="export">💾 Export</button>
+      </div>
+
+      <!-- ── Onglet AJOUTER ── -->
+      <div class="atab-panel" data-tab="add" style="display: none;">
+        <div id="add-form" style="display:flex;flex-direction:column;gap:12px;padding-top:14px;">
+          <div><label class="admin-label">Nom de l'enseigne <span style="color:#c0392b">*</span></label>
+            <input class="admin-input" type="text" id="f-name" placeholder="ex : FROMAGERIE DUPONT" autocomplete="off"></div>
+          <div><label class="admin-label">Adresse <span style="color:#c0392b">*</span></label>
+            <input class="admin-input" type="text" id="f-street" placeholder="ex : 12 rue du Marché" autocomplete="off"></div>
+          <div class="form-row-3">
+            <div><label class="admin-label">Code postal <span style="color:#c0392b">*</span></label>
+              <input class="admin-input" type="text" id="f-cp" placeholder="750XX" maxlength="5" autocomplete="off"></div>
+            <div><label class="admin-label">Arrondissement</label>
+              <select class="admin-select" id="f-arr">
+                <option value="">— auto —</option>
+                <option value="1">1er</option><option value="2">2e</option><option value="3">3e</option>
+                <option value="4">4e</option><option value="5">5e</option><option value="6">6e</option>
+                <option value="7">7e</option><option value="8">8e</option><option value="9">9e</option>
+                <option value="10">10e</option><option value="11">11e</option><option value="12">12e</option>
+                <option value="13">13e</option><option value="14">14e</option><option value="15">15e</option>
+                <option value="16">16e</option><option value="17">17e</option><option value="18">18e</option>
+                <option value="19">19e</option><option value="20">20e</option>
+              </select></div>
+            <div><label class="admin-label">Téléphone</label>
+              <input class="admin-input" type="text" id="f-phone" placeholder="01 42 …" autocomplete="off"></div>
+          </div>
+          <!-- Toggle adhérent à l'ajout -->
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);">
+            <input type="checkbox" id="f-member" style="width:16px;height:16px;accent-color:#2e9e4f;">
+            <span>⭐ Marquer comme adhérent FFF</span>
+          </label>
+          <div style="display:flex;gap:10px;">
+            <button class="admin-btn primary" id="admin-add-btn">➕ Ajouter à la carte</button>
+            <button class="admin-btn secondary" id="admin-clear-form-btn">Effacer</button>
+          </div>
+          <div class="admin-msg" id="add-msg"></div>
+        </div>
+      </div>
+
+      <!-- ── Onglet BASE DE DONNÉES ── -->
+      <div class="atab-panel" data-tab="db" style="display:none;">
+        <div style="padding-top:14px;">
+          <input class="admin-input" type="text" id="db-search" placeholder="🔍 Rechercher dans la base…" autocomplete="off" style="margin-bottom:12px;">
+          <div id="db-list" style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;"></div>
+        </div>
+      </div>
+
+      <!-- ── Onglet EXPORT ── -->
+      <div class="atab-panel" data-tab="export" style="display: block;">
+        <div style="padding-top:14px;display:flex;flex-direction:column;gap:12px;">
+          <div class="admin-actions">
+            <button class="admin-btn primary" id="export-html-btn">⬇ Exporter HTML mis à jour</button>
+            <button class="admin-btn secondary" id="export-csv-admin-btn">📄 Exporter CSV</button>
+          </div>
+          <div class="admin-msg" id="action-msg"></div>
+          <p style="font-size:11px;color:var(--muted);line-height:1.7;margin:0;">
+            <strong>💾 Export HTML :</strong> génère un nouveau fichier avec toutes les modifications (adhérents, ajouts, corrections) intégrées en dur. À déposer sur GitHub Pages pour mettre à jour le site.<br>
+            <strong>📄 Export CSV :</strong> export complet avec coordonnées GPS.
+          </p>
+        </div>
+      </div>
+
+    </div><!-- /admin-content -->
+  </div>
+</div>
+
+<script>
+/* ========== MODULE ADMIN UFIDF — v3 ========== */
+(function () {
+  'use strict';
+
+  var PASSWORD      = 'ufidf2024';
+  var STORAGE_KEY   = 'cremiers_custom_v2';
+  var OVERRIDES_KEY = 'cremiers_overrides_v1'; // modifications sur boutiques de base
+  var MEMBERS_KEY   = 'cremiers_members_v1';   // set des ids adhérents
+
+  /* ---- Persistance ---- */
+  function loadCustoms()   { try { var r=localStorage.getItem(STORAGE_KEY);   return r?JSON.parse(r):[]; } catch(e){return[];} }
+  function saveCustoms(a)  { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(a)); } catch(e){} }
+  function loadOverrides() { try { var r=localStorage.getItem(OVERRIDES_KEY); return r?JSON.parse(r):{}; } catch(e){return{};} }
+  function saveOverrides(o){ try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(o)); } catch(e){} }
+  function loadMembers()   { try { var r=localStorage.getItem(MEMBERS_KEY); return r?JSON.parse(r).map(Number):[]; } catch(e){return[];} }
+  function saveMembers(a)  { try { localStorage.setItem(MEMBERS_KEY, JSON.stringify(a)); } catch(e){} }
+
+  /* ---- Utilitaires ---- */
+  function esc(s) {
+    if(s==null)return'';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function showMsg(el,text,type){
+    el.textContent=text; el.className='admin-msg '+type;
+    if(type!=='error') setTimeout(function(){el.className='admin-msg';},4000);
+  }
+  function clearMsg(el){el.className='admin-msg';el.textContent='';}
+  function getArrFromCp(cp){
+    if(!cp||cp.length!==5)return null;
+    var n=parseInt(cp.slice(3),10);
+    return(n>=1&&n<=20)?n:null;
+  }
+  function nextId(){
+    var all=SHOPS.map(function(s){return s.id;}).concat(loadCustoms().map(function(s){return s.id;}));
+    return all.length?Math.max.apply(null,all)+1:1000;
+  }
+
+  /* ---- Applique les overrides + membres à tous les shops ---- */
+  function buildAllShops(){
+    var overrides=loadOverrides();
+    var members=loadMembers(); // array de Number
+    var membersSet=new Set(members);
+    var customs=loadCustoms();
+
+    var base=SHOPS.map(function(s){
+      var o=overrides[s.id]||{};
+      if(o._deleted)return null;
+      // Priorité : localStorage > valeur baked-in dans SHOPS
+      var isMember = membersSet.size > 0 ? membersSet.has(Number(s.id)) : !!s.member;
+      return Object.assign({},s,o,{member:isMember});
+    }).filter(Boolean);
+
+    var customsAll=customs.map(function(s){
+      var isMember = membersSet.size > 0 ? membersSet.has(Number(s.id)) : !!s.member;
+      return Object.assign({},s,{member:isMember});
+    });
+    return base.concat(customsAll);
+  }
+
+  /* ---- Refresh global carte ---- */
+  function refreshMap(){
+    if(!liveGeocodes) return;
+    var all=buildAllShops();
+    if(typeof window.renderList==='function') window.renderList(all, liveGeocodes);
+    // Refresh markers for member color changes
+    all.forEach(function(s){ if(markersById[s.id]) markersById[s.id].setIcon(makeIcon(false,!!s.member)); });
+    // refresh marker icons (member color)
+    all.forEach(function(s){
+      if(markersById[s.id]){
+        var isHL = (typeof currentHighlight!=='undefined' && currentHighlight===s.id);
+        markersById[s.id].setIcon(makeIcon(isHL, !!s.member));
+        // update popup
+        var ph=s.phone?'<div class="popup-tel">📞 <a href="tel:'+esc(s.phone)+'">'+esc(s.phone)+'</a></div>':'';
+        markersById[s.id].setPopupContent(
+          '<div class="popup-name">'+esc(s.name)+(s.member?' <span style="font-size:11px;background:#e8f5ec;color:#1a6b32;border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px;">✓ Adhérent</span>':'')+'</div>'
+          +'<div class="popup-line">'+esc(s.street)+'</div>'
+          +'<div class="popup-line">'+esc(s.cp)+' PARIS'+(s.arr?' — '+s.arr+'<sup>e</sup>':'')+'</div>'
+          +ph
+        );
+      }
+    });
+  }
+
+  /* ---- Géocodage unitaire ---- */
+  async function geocodeOne(shop){
+    var q=encodeURIComponent(shop.street+' '+shop.cp+' Paris');
+    try{
+      var res=await fetch('https://api-adresse.data.gouv.fr/search/?q='+q+'&postcode='+shop.cp+'&limit=1');
+      var data=await res.json();
+      if(data.features&&data.features.length>0){
+        var c=data.features[0].geometry.coordinates;
+        return{lat:c[1],lon:c[0],score:data.features[0].properties.score||0};
+      }
+    }catch(e){}
+    return null;
+  }
+
+  /* ---- Ajouter marqueur ---- */
+  function addMarkerToMap(shop,geo){
+    if(!geo||typeof L==='undefined'||!markerCluster)return;
+    if(markersById[shop.id]){markerCluster.removeLayer(markersById[shop.id]);delete markersById[shop.id];}
+    var marker=L.marker([geo.lat,geo.lon],{icon:makeIcon(false,!!shop.member)});
+    var ph=shop.phone?'<div class="popup-tel">📞 <a href="tel:'+esc(shop.phone)+'">'+esc(shop.phone)+'</a></div>':'';
+    marker.bindPopup(
+      '<div class="popup-name">'+esc(shop.name)+(shop.member?' <span style="font-size:11px;background:#e8f5ec;color:#1a6b32;border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px;">✓ Adhérent</span>':'')+'</div>'
+      +'<div class="popup-line">'+esc(shop.street)+'</div>'
+      +'<div class="popup-line">'+esc(shop.cp)+' PARIS'+(shop.arr?' — '+shop.arr+'<sup>e</sup>':'')+'</div>'+ph,
+      {maxWidth:300,closeButton:true}
+    );
+    marker.on('click',function(){
+      document.querySelectorAll('.shop-item').forEach(function(el){el.classList.remove('selected');});
+      var el=document.querySelector('.shop-item[data-id="'+shop.id+'"]');
+      if(el){el.classList.add('selected');el.scrollIntoView({behavior:'smooth',block:'nearest'});}
+    });
+    markersById[shop.id]=marker;
+    markerCluster.addLayer(marker);
+  }
+
+  /* ---- Export HTML ---- */
+  function exportHtml(){
+    var overrides=loadOverrides();
+    var members=new Set(loadMembers());
+    var customs=loadCustoms();
+
+    // Intégrer TOUTES les modifications en dur dans SHOPS :
+    // overrides, suppressions, flag member, ajouts customs
+    var allShops=SHOPS.map(function(s){
+      var o=overrides[s.id]||{};
+      if(o._deleted)return null;
+      return Object.assign({},s,o,{member:members.has(s.id)});
+    }).filter(Boolean);
+    customs.forEach(function(s){
+      allShops.push(Object.assign({},s,{member:members.has(s.id)}));
+    });
+    allShops=allShops.map(function(s,i){return Object.assign({},s,{id:i});});
+
+    var newJson=JSON.stringify(allShops);
+    var h=document.documentElement.outerHTML;
+
+    // 1. Remplacer SHOPS par la version enrichie
+    h=h.replace(/const SHOPS = \[[\s\S]*?\];/,'const SHOPS = '+newJson+';');
+
+    // 2. NE PAS incrémenter les clés — on garde les mêmes clés localStorage
+    // Le fichier exporté a SHOPS enrichi → les localStorage sont vides au départ
+    // ce qui est correct (tout est déjà dans SHOPS)
+
+    var blob=new Blob([h],{type:'text/html;charset=utf-8'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');a.href=url;a.download='carte_cremiers_paris_MAJ.html';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  }
+
+  /* ===== RENDU ONGLETS ADMIN ===== */
+  var currentTab = 'add';
+
+  function setTab(tab){
+    currentTab=tab;
+    document.querySelectorAll('.atab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab===tab); });
+    document.querySelectorAll('.atab-panel').forEach(function(p){ p.style.display = p.dataset.tab===tab?'block':'none'; });
+    if(tab==='db') renderDbList();
+  }
+
+  /* ---- Rendu liste base de données ---- */
+  function renderDbList(){
+    var panel=document.getElementById('db-panel');
+    var search=document.getElementById('db-search').value.trim().toLowerCase();
+    var overrides=loadOverrides();
+    var members=new Set(loadMembers());
+    var customs=loadCustoms();
+
+    var allShops=SHOPS.map(function(s){
+      var o=overrides[s.id]||{};
+      if(o._deleted)return null;
+      return Object.assign({},s,o,{member:members.has(s.id),_custom:false});
+    }).filter(Boolean);
+    customs.forEach(function(s){
+      allShops.push(Object.assign({},s,{member:members.has(s.id),_custom:true}));
+    });
+
+    var filtered=allShops.filter(function(s){
+      if(!search)return true;
+      return (s.name+' '+s.street).toLowerCase().includes(search);
+    });
+    filtered.sort(function(a,b){return a.name.localeCompare(b.name,'fr');});
+
+    var list=document.getElementById('db-list');
+    if(!filtered.length){
+      list.innerHTML='<div class="admin-empty">Aucun résultat.</div>';
+      return;
+    }
+    list.innerHTML=filtered.map(function(s){
+      return '<div class="db-item" data-id="'+s.id+'" data-custom="'+s._custom+'">'
+        +'<div class="db-item-top">'
+        +'<label class="db-member-toggle" title="'+(s.member?'Retirer des adhérents':'Marquer comme adhérent FFF')+'">'
+        +'<input type="checkbox" class="db-member-cb" data-id="'+s.id+'" '+(s.member?'checked':'')+' />'
+        +'<span class="db-star">'+(s.member?'⭐':'☆')+'</span>'
+        +'</label>'
+        +'<div class="db-info">'
+        +'<div class="db-name">'+esc(s.name)+(s.member?' <span class="member-badge">Adhérent</span>':'')+'</div>'
+        +'<div class="db-addr">'+esc(s.street)+', '+esc(s.cp)+(s.arr?' · '+s.arr+'e':'')+'</div>'
+        +(s.phone?'<div class="db-phone">📞 '+esc(s.phone)+'</div>':'')
+        +'</div>'
+        +'<div class="db-actions">'
+        +'<button class="db-edit-btn" data-id="'+s.id+'" title="Modifier">✏️</button>'
+        +'<button class="db-del-btn" data-id="'+s.id+'" data-custom="'+s._custom+'" title="Supprimer">🗑</button>'
+        +'</div>'
+        +'</div>'
+        +'<div class="db-edit-form" id="ef-'+s.id+'" style="display:none;">'
+        +'<input class="admin-input ef-name" placeholder="Nom" value="'+esc(s.name)+'" />'
+        +'<input class="admin-input ef-street" placeholder="Adresse" value="'+esc(s.street)+'" style="margin-top:6px;" />'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;">'
+        +'<input class="admin-input ef-cp" placeholder="CP" value="'+esc(s.cp)+'" />'
+        +'<input class="admin-input ef-arr" placeholder="Arr." value="'+(s.arr||'')+'" />'
+        +'<input class="admin-input ef-phone" placeholder="Tél." value="'+esc(s.phone||'')+'" />'
+        +'</div>'
+        +'<div style="display:flex;gap:8px;margin-top:8px;">'
+        +'<button class="admin-btn primary ef-save-btn" data-id="'+s.id+'" data-custom="'+s._custom+'" style="font-size:12px;padding:7px 14px;">✓ Enregistrer</button>'
+        +'<button class="admin-btn secondary ef-cancel-btn" data-id="'+s.id+'" style="font-size:12px;padding:7px 12px;">Annuler</button>'
+        +'</div>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+
+    // Events
+    list.querySelectorAll('.db-member-cb').forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var id=parseInt(this.dataset.id,10);
+        var mems=loadMembers();
+        var set=new Set(mems);
+        if(this.checked) set.add(id); else set.delete(id);
+        saveMembers(Array.from(set));
+        refreshMap();
+        renderDbList();
+      });
+    });
+    list.querySelectorAll('.db-edit-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var id=btn.dataset.id;
+        var ef=document.getElementById('ef-'+id);
+        ef.style.display = ef.style.display==='none'?'block':'none';
+      });
+    });
+    list.querySelectorAll('.ef-cancel-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        document.getElementById('ef-'+btn.dataset.id).style.display='none';
+      });
+    });
+    list.querySelectorAll('.ef-save-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var id=parseInt(btn.dataset.id,10);
+        var isCustom=btn.dataset.custom==='true';
+        var ef=document.getElementById('ef-'+id);
+        var name=ef.querySelector('.ef-name').value.trim().toUpperCase();
+        var street=ef.querySelector('.ef-street').value.trim();
+        var cp=ef.querySelector('.ef-cp').value.trim();
+        var arr=parseInt(ef.querySelector('.ef-arr').value)||getArrFromCp(cp);
+        var phone=ef.querySelector('.ef-phone').value.trim()||null;
+        if(!name||!street||!cp){alert('Nom, adresse et CP sont obligatoires.');return;}
+        if(isCustom){
+          var customs=loadCustoms();
+          var idx=customs.findIndex(function(s){return s.id===id;});
+          if(idx>=0){customs[idx]=Object.assign(customs[idx],{name,street,cp,arr,phone});saveCustoms(customs);}
+        } else {
+          var overrides=loadOverrides();
+          overrides[id]=Object.assign(overrides[id]||{},{name,street,cp,arr,phone});
+          saveOverrides(overrides);
+        }
+        if(liveGeocodes){
+          (async function(){
+            var shop={id:id,name:name,street:street,cp:cp,city:'PARIS',arr:arr,phone:phone,member:loadMembers().includes(id)};
+            var geo=await geocodeOne(shop);
+            if(geo){liveGeocodes[id]=geo;addMarkerToMap(shop,geo);}
+            refreshMap();
+          })();
+        }
+        ef.style.display='none';
+        renderDbList();
+      });
+    });
+    list.querySelectorAll('.db-del-btn').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var id=parseInt(btn.dataset.id,10);
+        var isCustom=btn.dataset.custom==='true';
+        var name=btn.closest('.db-item').querySelector('.db-name').textContent.trim();
+        if(!confirm('Supprimer "'+name+'" ?'))return;
+        if(isCustom){
+          var customs=loadCustoms();
+          saveCustoms(customs.filter(function(s){return s.id!==id;}));
+        } else {
+          var overrides=loadOverrides();
+          overrides[id]=Object.assign(overrides[id]||{},{_deleted:true});
+          saveOverrides(overrides);
+        }
+        if(markersById[id]){markerCluster.removeLayer(markersById[id]);delete markersById[id];}
+        if(liveGeocodes)delete liveGeocodes[id];
+        refreshMap();
+        renderDbList();
+      });
+    });
+  }
+
+  /* ===== ÉTAT PARTAGÉ ===== */
+  var liveGeocodes=null;
+  // Exposer buildAllShops pour la carte principale
+  window._buildAllShops = buildAllShops;
+
+  window._adminSetGeocodes=function(gc){
+    liveGeocodes=gc;
+    // Re-géocoder les ajouts customs + appliquer overrides + membres
+    var all=buildAllShops();
+    (async function(){
+      for(var i=0;i<all.length;i++){
+        var s=all[i];
+        if(!liveGeocodes[s.id]){
+          var geo=await geocodeOne(s);
+          if(geo){liveGeocodes[s.id]=geo;addMarkerToMap(s,geo);}
+        } else {
+          // Refresh icon couleur membre
+          if(markersById[s.id]) markersById[s.id].setIcon(makeIcon(false,!!s.member));
+        }
+      }
+      if(typeof window.renderList==='function') window.renderList(all,liveGeocodes);
+    })();
+  };
+
+  /* ===== INIT ===== */
+  window.addEventListener('load',function(){
+    var overlay=document.getElementById('admin-overlay');
+    var toggleBtn=document.getElementById('admin-toggle-btn');
+    var closeBtn=document.getElementById('admin-close');
+    var authSection=document.getElementById('auth-section');
+    var adminContent=document.getElementById('admin-content');
+    var pwdInput=document.getElementById('admin-pwd');
+    var authBtn=document.getElementById('admin-auth-btn');
+    var authMsg=document.getElementById('auth-msg');
+    var addBtn=document.getElementById('admin-add-btn');
+    var clearFormBtn=document.getElementById('admin-clear-form-btn');
+    var addMsg=document.getElementById('add-msg');
+    var actionMsg=document.getElementById('action-msg');
+
+    toggleBtn.addEventListener('click',function(){overlay.classList.add('open');});
+    closeBtn.addEventListener('click',function(){overlay.classList.remove('open');});
+    overlay.addEventListener('click',function(e){if(e.target===overlay)overlay.classList.remove('open');});
+
+    function doAuth(){
+      if(pwdInput.value===PASSWORD){
+        authSection.style.display='none';
+        adminContent.style.display='block';
+        setTab('add');
+      } else {
+        showMsg(authMsg,'Mot de passe incorrect.','error');
+        pwdInput.value='';pwdInput.focus();
+      }
+    }
+    authBtn.addEventListener('click',doAuth);
+    pwdInput.addEventListener('keydown',function(e){if(e.key==='Enter')doAuth();});
+
+    // Tab switching
+    document.querySelectorAll('.atab-btn').forEach(function(b){
+      b.addEventListener('click',function(){setTab(b.dataset.tab);});
+    });
+    document.getElementById('db-search').addEventListener('input',renderDbList);
+
+    // Effacer formulaire
+    clearFormBtn.addEventListener('click',function(){
+      ['f-name','f-street','f-cp','f-phone'].forEach(function(id){document.getElementById(id).value='';});
+      document.getElementById('f-arr').value='';clearMsg(addMsg);
+    });
+
+    // Ajouter une boutique
+    addBtn.addEventListener('click',async function(){
+      var name=document.getElementById('f-name').value.trim().toUpperCase();
+      var street=document.getElementById('f-street').value.trim();
+      var cp=document.getElementById('f-cp').value.trim();
+      var arrVal=document.getElementById('f-arr').value;
+      var phone=document.getElementById('f-phone').value.trim()||null;
+      var isMember=document.getElementById('f-member').checked;
+
+      if(!name){showMsg(addMsg,'⚠ Le nom est obligatoire.','error');return;}
+      if(!street){showMsg(addMsg,'⚠ Adresse obligatoire.','error');return;}
+      if(!cp){showMsg(addMsg,'⚠ Le code postal est obligatoire.','error');return;}
+      if(!/^750[0-9]{2}$/.test(cp)){showMsg(addMsg,'⚠ Code postal invalide (750XX).','error');return;}
+      if(cp==='75116'){showMsg(addMsg,'⚠ Utilisez 75016 et non 75116.','error');return;}
+
+      var arr=arrVal?parseInt(arrVal,10):getArrFromCp(cp);
+      var shop={id:nextId(),name:name,street:street,cp:cp,city:'PARIS',arr:arr,phone:phone,member:isMember};
+
+      addBtn.disabled=true;
+      showMsg(addMsg,'🔍 Géocodage en cours…','info');
+
+      if(isMember){
+        var mems=loadMembers();var set=new Set(mems);set.add(shop.id);saveMembers(Array.from(set));
+      }
+
+      var geo=null;
+      if(liveGeocodes){
+        geo=await geocodeOne(shop);
+        if(geo){liveGeocodes[shop.id]=geo;addMarkerToMap(shop,geo);}
+      }
+
+      var customs=loadCustoms();customs.push(shop);saveCustoms(customs);
+      refreshMap();
+
+      if(arr&&document.getElementById('arr-filter')){
+        var select=document.getElementById('arr-filter');
+        var exists=Array.from(select.options).some(function(o){return parseInt(o.value,10)===arr;});
+        if(!exists){var opt=document.createElement('option');opt.value=arr;opt.textContent=arr+'e arrondissement';select.appendChild(opt);}
+      }
+
+      ['f-name','f-street','f-cp','f-phone'].forEach(function(id){document.getElementById(id).value='';});
+      document.getElementById('f-arr').value='';
+      document.getElementById('f-member').checked=false;
+      addBtn.disabled=false;
+      showMsg(addMsg,geo?'✓ "'+name+'" ajouté et localisé !':'✓ "'+name+'" ajouté (adresse non géocodée).', geo?'success':'info');
+    });
+
+    // Export
+    document.getElementById('export-html-btn').addEventListener('click',function(){
+      exportHtml();showMsg(actionMsg,'✓ Fichier HTML exporté.','success');
+    });
+    document.getElementById('export-csv-admin-btn').addEventListener('click',function(){
+      if(!liveGeocodes){showMsg(actionMsg,'⚠ Carte pas encore chargée.','error');return;}
+      exportCSV(buildAllShops(),liveGeocodes);
+    });
+  });
+})();
+</script>
+
+
+</body></html>
